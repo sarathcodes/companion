@@ -1,101 +1,132 @@
-from openai import OpenAI
+import base64
+from google import genai
 from typing import Dict, List, Optional
-from google.oauth2.service_account import Credentials
-from google.cloud import texttospeech
 from python.config import Config
+from python.consts import (
+    DEFAULT_STT_MODEL,
+    DEFAULT_TTS_MODEL,
+    GEMINI_FEMALE_VOICES,
+    GEMINI_MALE_VOICES,
+    SUPPORTED_OUTPUT_LOCALES,
+)
+
+gemini_client: Optional[genai.Client] = None
+default_voice: str = "Kore"
 
 
-t2s_audio_config = texttospeech.AudioConfig(audio_encoding=texttospeech.AudioEncoding.MP3)
-t2s_client: Optional[texttospeech.TextToSpeechClient] = None
-t2s_voice: Optional[texttospeech.VoiceSelectionParams] = None
-openai_client: Optional[OpenAI] = None
-
-
-def init_speech(config: Config, credentials: Optional[Credentials]) -> None:
+def init_speech(config: Config, client: genai.Client) -> None:
     """
-    Initialize Google text-to-speech client and OpenAI client
+    Initialize Gemini client and default voice for speech-to-text and text-to-speech
 
     :param config: Config
-    :param credentials: a Google Credentials object
+    :param client: a Google GenAI Client object
     """
-    global t2s_client, t2s_voice, openai_client
+    global gemini_client, default_voice
 
-    openai_client = config.openai.client
-    t2s_client = texttospeech.TextToSpeechClient(credentials=credentials)
-
-    l = config.bot.voice.split("-")
-    t2s_voice = get_voice_object(voice_name=config.bot.voice, language_code=f"{l[0]}-{l[1]}")
+    gemini_client = client
+    configured_voice = config.get("bot", {}).get("voice", "Kore") if config else "Kore"
+    default_voice = get_voice_object(voice_name=configured_voice)
 
 
-def get_voice_object(voice_name: str, language_code: str) -> texttospeech.VoiceSelectionParams:
+def get_voice_object(voice_name: str, language_code: Optional[str] = None) -> str:
     """
-    Create a VoiceSelectionParams object
+    Normalize a voice name for Gemini TTS.
+    Falls back to 'Kore' if a legacy Google Cloud TTS placeholder (e.g. 'xx-xx' or 'fr-FR-Neural2-A') is provided.
 
-    :param voice_name: voice name
-    :param language_code: language code and locale (i.e. 'en-US')
-    :return: a VoiceSelectionParams object
+    :param voice_name: voice name (e.g. 'Kore', 'Puck', or 'voice_...')
+    :param language_code: optional language code (unused, as Gemini 3.8 TTS detects language automatically)
+    :return: normalized voice name string
     """
-    return texttospeech.VoiceSelectionParams(name=voice_name, language_code=language_code)
+    if not voice_name or ("-" in voice_name and not voice_name.startswith("voice_")):
+        return "Kore"
+    return voice_name
 
 
-def speech2text(filename: str, language: str) -> str:
+def speech2text(filename: str, language: Optional[str] = None) -> str:
     """
-    Convert mp3 filename containing recording to text
+    Convert audio file containing user recording to text using Gemini 3.5 Transcribe
 
-    :param filename: mp3 filename with recording
-    :param language: ISO 639-1 code of the language spoken in the recording.
-                     If None, STT service will try to figure it out, by it might hurt performances
+    :param filename: audio filename with recording
+    :param language: ISO 639-1 or BCP-47 code of the language spoken in the recording.
+                     If None, Gemini 3.5 Transcribe detects the language automatically.
     :return: transcribed text
     """
-    audio_file = open(filename, "rb")
-    if language is None:
-        transcript = openai_client.audio.transcriptions.create(model="whisper-1", file=audio_file, response_format="text")
-    else:
-        transcript = openai_client.audio.transcriptions.create(model="whisper-1", file=audio_file, response_format="text", language=language)
-    return transcript
+    audio_file = gemini_client.files.upload(file=filename)
+    language_codes: List[str] = []
+    if language:
+        # Map 2-letter ISO code to matching locale if available
+        matched_locales = [loc for loc in SUPPORTED_OUTPUT_LOCALES if loc.lower().startswith(f"{language.lower()}-")]
+        if matched_locales:
+            language_codes = [matched_locales[0]]
+        elif "-" in language:
+            language_codes = [language]
+
+    response = gemini_client.interactions.create(
+        model=DEFAULT_STT_MODEL,
+        input=[audio_file],
+        generation_config={
+            "transcription_config": {
+                "language_codes": language_codes,
+            }
+        },
+        store=False,
+    )
+    return (response.output_text or "").strip()
 
 
-def text2speech(text: str, filename: str, voice: Optional[texttospeech.VoiceSelectionParams] = None) -> str:
+def text2speech(text: str, filename: str, voice: Optional[str] = None) -> str:
     """
-    Convert text to speech
+    Convert text to speech using Gemini 3.8 TTS (`gemini-3.8-flash-lite-tts`)
 
     :param text: text to be converted
-    :param filename: mp3 file with saved speech audio
-    :param voice: an optional alternative voice, instead of the default one
+    :param filename: file path to save the synthesized speech audio (WAV format, decoded natively by Web Audio API)
+    :param voice: an optional alternative voice name, instead of the default one
     :return: filename
     """
-    voice = voice or t2s_voice
-    synthesis_input = texttospeech.SynthesisInput(text=text)
-    speech = t2s_client.synthesize_speech(
-        input=synthesis_input, voice=voice, audio_config=t2s_audio_config
-    ).audio_content
-    with open(filename, "wb") as mp3_file:
-        mp3_file.write(speech)
+    clean_text = (text or "").strip()
+    if not clean_text:
+        return filename
+
+    selected_voice = get_voice_object(voice or default_voice)
+    interaction = gemini_client.interactions.create(
+        model=DEFAULT_TTS_MODEL,
+        input=[{
+            "type": "user_input",
+            "content": [{
+                "type": "text",
+                "text": clean_text,
+                "annotations": [{
+                    "type": "speech_metadata",
+                    "style": "warm, clear, and natural language tutor",
+                }],
+            }],
+        }],
+        response_format={"type": "audio"},
+        generation_config={
+            "speech_config": [
+                {"voice": selected_voice},
+            ]
+        },
+        store=False,
+    )
+
+    if interaction.output_audio and interaction.output_audio.data:
+        audio_bytes = base64.b64decode(interaction.output_audio.data)
+        with open(filename, "wb") as audio_file:
+            audio_file.write(audio_bytes)
     return filename
 
 
 def voices_by_features() -> Dict[str, Dict[str, List[str]]]:
     """
-    Return voices supported by TTS, by language and gender
+    Return voices supported by Gemini 3.8 TTS, organized by language locale and gender.
 
-    :return: Dict: {lang: {gender: [list of voices]}}
+    :return: Dict: {lang_locale: {gender: [list of voices]}}
     """
-    voices_dict = dict()
-    voices = t2s_client.list_voices().voices
-
-    for voice in voices:
-        language_codes = voice.language_codes
-        name = voice.name
-        gender = texttospeech.SsmlVoiceGender(voice.ssml_gender).name.lower()
-
-        for language_code in language_codes:
-            if language_code not in voices_dict:
-                voices_dict[language_code] = dict()
-
-            lang_dict = voices_dict[language_code]
-            if gender not in lang_dict:
-                lang_dict[gender] = list()
-
-            lang_dict[gender].append(name)
-
+    voices_dict: Dict[str, Dict[str, List[str]]] = {}
+    for locale in SUPPORTED_OUTPUT_LOCALES:
+        voices_dict[locale] = {
+            "female": list(GEMINI_FEMALE_VOICES),
+            "male": list(GEMINI_MALE_VOICES),
+        }
     return voices_dict

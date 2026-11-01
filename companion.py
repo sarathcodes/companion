@@ -90,7 +90,7 @@ def setup():
             },
             "bot": {
                 "name": request.form.get('tutor').split("-")[0],
-                "image": f"/static/bots_profile/{request.form.get('tutor').split('-')[0].lower()}.png",
+                "image": f"/static/bots_profile/{unidecode(request.form.get('tutor').split('-')[0].lower())}.png",
                 "gender": request.form.get('tutor').split("-")[1].lower(),
                 "voice": request.form.get('voices-dropdown')
             },
@@ -162,6 +162,7 @@ def upload_recording():
         try:
             mp3_filename = os.path.join(TEMP_DIR, f"user_recording_{len(memory)}_0.mp3")
             utils.convert_file_and_save_as_mp3(raw_recording_filename, mp3_filename)
+            app_cache.user_recording = mp3_filename
         except Exception as e:
             app_cache.server_errors.append(utils.get_error_message_from_exception(e))
             mp3_filename = None
@@ -451,17 +452,16 @@ def restart() -> None:
         config = Config.from_yml_file(app_cache.config_file)
     except FileNotFoundError:
         app_cache.server_errors.append("Config file not found. Go to /setup to configure the app.")
-        config = Config({'bot': {'voice': 'xx-xx'}})
+        config = Config({'bot': {'voice': 'Kore'}})
 
     if app_cache.keys_file:
         config.update_from_yml_file(app_cache.keys_file)
 
-    openai_client = utils.init_openai(config)
-    config.update(openai={'client': openai_client})
-    
-    gcs_creds = utils.get_gcs_credentials(config)
-    language.init_language(credentials=gcs_creds)
-    speech.init_speech(config=config, credentials=gcs_creds)
+    gemini_client = utils.init_gemini(config)
+    config.update(gemini={'client': gemini_client})
+
+    language.init_language(client=gemini_client)
+    speech.init_speech(config=config, client=gemini_client)
 
 
 def run() -> None:

@@ -1,52 +1,73 @@
 from langcodes import Language, find
-from google.cloud import translate_v2
-from google.oauth2.service_account import Credentials
+from google import genai
 from typing import Optional
+from python.consts import DEFAULT_FAST_MODEL
 
-translate_client = translate_v2.Client()
+gemini_client: Optional[genai.Client] = None
 
 
-def init_language(credentials: Optional[Credentials]) -> None:
+def init_language(client: genai.Client) -> None:
     """
-    Initialize Google Translate client
+    Initialize Gemini client for translation and language detection
 
-    :param credentials: a Google Credentials object
+    :param client: a Google GenAI Client object
     """
-    global translate_client
-    translate_client = translate_v2.Client(credentials=credentials)
+    global gemini_client
+    gemini_client = client
 
 
 def translate(text: str, to: str) -> str:
     """
-    Translate text
+    Translate text using Gemini
 
     :param text: text to translate
     :param to: ISO 639-1 code of the language to translate the text to
     :return: translated text
     """
-    result = translate_client.translate(text, target_language=to, format_="html")
-    return result["translatedText"]
+    target_lang_name = iso6391_to_language_name(to)
+    interaction = gemini_client.interactions.create(
+        model=DEFAULT_FAST_MODEL,
+        system_instruction=(
+            f"You are a professional translator. Translate the user's message into {target_lang_name} ({to}). "
+            "Preserve any HTML formatting or line breaks if present. Output ONLY the translated text, "
+            "with no explanations or surrounding quotes."
+        ),
+        input=text,
+        store=False,
+    )
+    return (interaction.output_text or "").strip()
 
 
 def detect_language(text: str) -> str:
     """
-    Detect language of text
+    Detect language of text using Gemini
 
     :param text: a string
     :return: ISO 639-1 code of the language detected (as string)
     """
-    return translate_client.detect_language(text)["language"]
+    interaction = gemini_client.interactions.create(
+        model=DEFAULT_FAST_MODEL,
+        system_instruction=(
+            "Identify the language of the user's text and respond with ONLY its 2-letter "
+            "ISO 639-1 language code in lowercase (for example: fr, en, es, de, it). "
+            "Output nothing else."
+        ),
+        input=text,
+        store=False,
+    )
+    detected = (interaction.output_text or "").strip().lower()
+    return detected.split()[0][:2] if detected else ""
 
 
 def is_text_of_language(text: str, language_code: str) -> bool:
     """
-    Whether ot not the text is written in this language
+    Whether or not the text is written in this language
 
     :param text: a string
     :param language_code: ISO 639-1 code of the language
     :return: True or False
     """
-    return detect_language(text) == language_code
+    return detect_language(text) == language_code.lower()
 
 
 def language_name_to_iso6391(language_name: str) -> str:

@@ -5,6 +5,83 @@ TEMP_DIR = os.path.join(os.getcwd(), f"static/{TEMP_DIR_NAME}")
 LTM_DIR = os.path.join(os.getcwd(), "ltm")  # Long Term Memory
 SAVED_SESSION_FILE = os.path.join(LTM_DIR, "last_session.json")
 
+DEFAULT_CHAT_MODEL = "gemini-3.8-flash"
+DEFAULT_FAST_MODEL = "gemini-3.5-flash-lite"
+DEFAULT_STT_MODEL = "gemini-3.5-transcribe"
+DEFAULT_TTS_MODEL = "gemini-3.8-flash-lite-tts"
+
+GEMINI_FEMALE_VOICES = [
+    "Kore",
+    "Aoede",
+    "Leda",
+    "Zephyr",
+    "Callirrhoe",
+    "Autonoe",
+    "Despina",
+    "Erinome",
+    "Laomedeia",
+    "Achernar",
+    "Pulcherrima",
+    "Vindemiatrix",
+    "Sulafat",
+]
+
+GEMINI_MALE_VOICES = [
+    "Puck",
+    "Charon",
+    "Fenrir",
+    "Orus",
+    "Enceladus",
+    "Iapetus",
+    "Umbriel",
+    "Algieba",
+    "Algenib",
+    "Rasalgethi",
+    "Alnilam",
+    "Schedar",
+    "Gacrux",
+    "Achird",
+    "Zubenelgenubi",
+    "Sadachbia",
+    "Sadaltager",
+]
+
+SUPPORTED_OUTPUT_LOCALES = [
+    "fr-FR",
+    "fr-CA",
+    "es-ES",
+    "es-US",
+    "de-DE",
+    "it-IT",
+    "pt-BR",
+    "pt-PT",
+    "en-US",
+    "en-GB",
+    "nl-NL",
+    "ru-RU",
+    "ja-JP",
+    "ko-KR",
+    "zh-CN",
+    "zh-TW",
+    "ar-XA",
+    "hi-IN",
+    "pl-PL",
+    "tr-TR",
+    "sv-SE",
+    "da-DK",
+    "fi-FI",
+    "no-NO",
+    "el-GR",
+    "he-IL",
+    "id-ID",
+    "th-TH",
+    "uk-UA",
+    "vi-VN",
+    "cs-CZ",
+    "ro-RO",
+    "hu-HU",
+]
+
 MALE_TUTORS = [
     "Nicolas",
     "James",
@@ -21,7 +98,7 @@ FEMALE_TUTORS = [
     "Marie"
 ]
 
-INPUT_LANGUAGES = [  # Supported languages by OpenAI Whisper
+INPUT_LANGUAGES = [  # Supported languages by Gemini 3.5 Transcribe
     "Afrikaans",
     "Arabic",
     "Armenian",
