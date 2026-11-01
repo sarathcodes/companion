@@ -205,6 +205,8 @@ def get_response():
     """
     Get response from chatbot
     """
+    global audio_queue_reject_remaining_fragments
+    audio_queue_reject_remaining_fragments = False
     error_message = None
     first_message = ''
     try:
@@ -227,7 +229,7 @@ def get_response():
 def get_next_message():
     """
     Helper endpoint for '/get_response', to handle the generator yielded by the chatbot.
-    It returns the next characters in generator till it is consumed.
+    It returns the next characters in generator till it is consumed, then queues the full response for TTS.
     """
     index = int(request.form['message_index'])
     if app_cache.message_generator is None:
@@ -235,19 +237,12 @@ def get_next_message():
     try:
         next_message = next(app_cache.message_generator)
         app_cache.generated_message += next_message
-        app_cache.last_sentence += next_message
-        split_sentence = utils.split_to_sentences(app_cache.last_sentence)
-        if len(split_sentence) > 1:
-            app_cache.text2speech_queue.put({"text": split_sentence[0],
-                                             "counter": app_cache.sentences_counter,
-                                             "message_index": index})
-            app_cache.sentences_counter += 1
-            app_cache.last_sentence = split_sentence[1]
         return jsonify({'message': app_cache.generated_message})
     except StopIteration:
-        if app_cache.last_sentence.strip() != '':
-            app_cache.text2speech_queue.put({"text": app_cache.last_sentence,
-                                             "counter": app_cache.sentences_counter,
+        full_message = app_cache.generated_message.strip()
+        if full_message != '':
+            app_cache.text2speech_queue.put({"text": full_message,
+                                             "counter": 0,
                                              "message_index": index})
         store_message(sender="assistant", message=app_cache.generated_message)
         app_cache.message_generator = None
@@ -310,13 +305,16 @@ def play_bot_message():
     """
     Play selected message's bot recording if exists. If not, send text to TTS and play audio
     """
+    global audio_queue_reject_remaining_fragments
+    audio_queue_reject_remaining_fragments = False
     index = int(request.form['message_id'].split('_')[1])
-    recordings = memory[index]["recording"]
-    if recordings is None or len(recordings) == 0:
+    recordings = memory[index]["recording"] if index < len(memory) else []
+    existing_recordings = [r for r in (recordings or []) if r and os.path.exists(r)]
+    if len(existing_recordings) == 0:
         app_cache.text2speech_queue.put({"text": request.form["text"], "counter": 0,
                                          "message_index": index, 'skip_cache': True})
     else:
-        for r in recordings:
+        for r in existing_recordings:
             put_in_audio_queue(r)
     return jsonify({'message': 'Recordings inserted to queue'})
 

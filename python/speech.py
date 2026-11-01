@@ -84,8 +84,9 @@ def text2speech(text: str, filename: str, voice: Optional[str] = None) -> str:
     :param voice: an optional alternative voice name, instead of the default one
     :return: filename if audio was generated, or empty string if skipped
     """
-    # Strip markdown formatting characters before TTS synthesis
-    clean_text = re.sub(r"[*_#`~]+", "", text or "").strip()
+    # Strip markdown formatting characters and normalize whitespace before TTS synthesis
+    clean_text = re.sub(r"[*_#`~]+", "", text or "")
+    clean_text = re.sub(r"\s+", " ", clean_text).strip()
     if not clean_text or not any(c.isalnum() for c in clean_text):
         return ""
 

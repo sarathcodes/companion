@@ -27,7 +27,12 @@ $(document).ready(function() {
 
 
 function initAudio() {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx === undefined) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
 }
 
 
@@ -56,7 +61,10 @@ function loadAudioFromQueue() {
 
 
 function playAudio() {
-    if (!isPlaying) {
+    if (!isPlaying && audioBuffers.length > 0) {
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
         isPlaying = true;
         isPaused = false;
         stopPlaying = false;

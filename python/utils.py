@@ -61,14 +61,12 @@ def bot_text_to_speech(text: str, message_index: int, counter: int, voice: Optio
 
     :param text: text to be converted to speech
     :param message_index: index of message in memory
-    :param counter: number of this file from all speech files created for this message (as messages are split as
-                    they are being written, and full sentences are sent to be converted to speech)
+    :param counter: number of this file from all speech files created for this message
     :param voice: an optional alternative voice name, instead of the default one
     :return: file name of speech recording
     """
-    filename = os.path.join(TEMP_DIR, f"bot_speech_{message_index}_{counter}.mp3")
-    speech.text2speech(text, filename, voice=voice)
-    return filename
+    filename = os.path.join(TEMP_DIR, f"bot_speech_{message_index}_{counter}.wav")
+    return speech.text2speech(text, filename, voice=voice)
 
 
 def init_gemini(config: Config) -> Optional[genai.Client]:
