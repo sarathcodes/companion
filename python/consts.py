@@ -5,7 +5,7 @@ TEMP_DIR = os.path.join(os.getcwd(), f"static/{TEMP_DIR_NAME}")
 LTM_DIR = os.path.join(os.getcwd(), "ltm")  # Long Term Memory
 SAVED_SESSION_FILE = os.path.join(LTM_DIR, "last_session.json")
 
-DEFAULT_CHAT_MODEL = "gemini-3.8-flash"
+DEFAULT_CHAT_MODEL = "gemini-3.5-flash-lite"
 DEFAULT_FAST_MODEL = "gemini-3.5-flash-lite"
 DEFAULT_STT_MODEL = "gemini-3.5-transcribe"
 DEFAULT_TTS_MODEL = "gemini-3.8-flash-lite-tts"

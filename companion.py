@@ -474,17 +474,17 @@ def restart() -> None:
     speech.init_speech(config=config, client=gemini_client)
 
 
-def run() -> None:
+def run(port: int = 5001) -> None:
     """
     Run app
     """
     global voices_by_features
     restart()
     voices_by_features = speech.voices_by_features()
-    app_cache.text2speech_thread = Thread(target=bot_text_to_speech_queue_func)
+    app_cache.text2speech_thread = Thread(target=bot_text_to_speech_queue_func, daemon=True)
     app_cache.text2speech_thread.start()
 
-    app.run()
+    app.run(host="0.0.0.0", port=port)
 
 
 ########## THREADS ##########
@@ -501,6 +501,8 @@ def bot_text_to_speech_queue_func():
             item = app_cache.text2speech_queue.get(timeout=1)  # Wait for 1 second to get an item
             idx = item["message_index"]
             filename = utils.bot_text_to_speech(text=item['text'], message_index=idx, counter=item['counter'])
+            if not filename or not os.path.exists(filename):
+                continue
             if item.get('skip_cache', False):
                 memory.update(idx, recording=[filename])
             else:
@@ -521,9 +523,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--config', dest='config_file', default='config.yml', help='A config yml file.')
     parser.add_argument('-k', '--keys', dest='keys_file', help='A keys yml file [optional].')
+    parser.add_argument('-p', '--port', dest='port', type=int, default=5001, help='Port to run the server on (default: 5001).')
     args = parser.parse_args()
     signal.signal(signal.SIGINT, exit_graceful)
     signal.signal(signal.SIGTERM, exit_graceful)
     app_cache.config_file = args.config_file
     app_cache.keys_file = args.keys_file
-    run()
+    run(port=args.port)

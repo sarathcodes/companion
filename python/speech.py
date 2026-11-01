@@ -1,3 +1,5 @@
+import os
+import re
 import base64
 from google import genai
 from typing import Dict, List, Optional
@@ -54,7 +56,6 @@ def speech2text(filename: str, language: Optional[str] = None) -> str:
     audio_file = gemini_client.files.upload(file=filename)
     language_codes: List[str] = []
     if language:
-        # Map 2-letter ISO code to matching locale if available
         matched_locales = [loc for loc in SUPPORTED_OUTPUT_LOCALES if loc.lower().startswith(f"{language.lower()}-")]
         if matched_locales:
             language_codes = [matched_locales[0]]
@@ -81,11 +82,12 @@ def text2speech(text: str, filename: str, voice: Optional[str] = None) -> str:
     :param text: text to be converted
     :param filename: file path to save the synthesized speech audio (WAV format, decoded natively by Web Audio API)
     :param voice: an optional alternative voice name, instead of the default one
-    :return: filename
+    :return: filename if audio was generated, or empty string if skipped
     """
-    clean_text = (text or "").strip()
-    if not clean_text:
-        return filename
+    # Strip markdown formatting characters before TTS synthesis
+    clean_text = re.sub(r"[*_#`~]+", "", text or "").strip()
+    if not clean_text or not any(c.isalnum() for c in clean_text):
+        return ""
 
     selected_voice = get_voice_object(voice or default_voice)
     interaction = gemini_client.interactions.create(
@@ -114,7 +116,9 @@ def text2speech(text: str, filename: str, voice: Optional[str] = None) -> str:
         audio_bytes = base64.b64decode(interaction.output_audio.data)
         with open(filename, "wb") as audio_file:
             audio_file.write(audio_bytes)
-    return filename
+        if os.path.exists(filename) and os.path.getsize(filename) > 0:
+            return filename
+    return ""
 
 
 def voices_by_features() -> Dict[str, Dict[str, List[str]]]:

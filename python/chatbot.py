@@ -16,10 +16,11 @@ SYSTEM_PROMPT = """You are a {language} teacher named {teacher_name}, and you ar
                    message to {language}, and then reply.
                    * IMPORTANT: If your student makes any mistake, be it typo or grammar, you MUST first correct
                    your student and only then reply.
+                   * Keep your responses concise, natural, and conversational (plain text, avoid markdown horizontal rules).
                    * You are only allowed to speak {language}."""
 
-INITIAL_MESSAGE = """Greet me, and then suggest 3 optional subjects for our lesson suiting my level. 
-                     You must reply in {language}."""
+INITIAL_MESSAGE = """Start our session now: greet me warmly as my tutor and suggest 3 optional topics for our lesson 
+                     suiting my level. Reply directly in {language} (do not translate this instruction)."""
 
 TUTOR_INSTRUCTIONS = """
                      ---
@@ -82,8 +83,6 @@ class Chatbot:
             user_prompt = history[-1]["content"] + dedent(
                 TUTOR_INSTRUCTIONS.format(language=self._language_name)
             )
-            # If resuming a loaded session where no server-side previous_interaction_id exists yet,
-            # include the loaded transcript in system_instruction for this turn.
             if self._last_interaction_id is None and len(history) > 2:
                 past_turns = "\n".join(
                     f"{'Student' if m['role'] == 'user' else 'Tutor'}: {m['content']}"
@@ -94,10 +93,14 @@ class Chatbot:
                     f"Previous conversation history from loaded session:\n{past_turns}"
                 )
 
+        thinking_level = "minimal" if "lite" in self._model else "low"
         kwargs = {
             "model": self._model,
             "system_instruction": system_instruction,
             "input": user_prompt,
+            "generation_config": {
+                "thinking_level": thinking_level,
+            },
             "stream": True,
         }
         if self._last_interaction_id is not None:
