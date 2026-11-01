@@ -2,11 +2,11 @@
 <html lang="fr">
   <head>
     <meta charset="utf-8">
-    <title>Companion — French Class &amp; DELF B1 Prep</title>
+    <title>Companion — Apprends le Français en t'amusant !</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@500;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.0.2/css/bootstrap.min.css" />
     <link rel="stylesheet" href="{{ url_for('static', filename='common.css') }}" />
     <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}" />
@@ -26,260 +26,174 @@
   <body>
     <div id="notification-area"></div>
 
-    <!-- Top Navigation Header -->
-    <header class="app-header">
-      <div class="app-header-inner">
-        <div class="brand-area">
-          <img src="/static/logo.png" alt="Companion Logo" class="brand-logo" id="logo-image">
-          <div class="brand-subtitle">
-            <span class="badge bg-primary">Objectif : DELF B1 (Février)</span>
-            <span class="text-muted ms-2 non-mobile">Genève • 2 cours / semaine</span>
-          </div>
+    <!-- Fun Game-Style Header -->
+    <header class="fun-header">
+      <div class="fun-header-inner">
+        <div class="fun-brand">
+          <img src="/static/logo.png" alt="Companion" class="fun-logo" id="logo-image">
         </div>
 
-        <nav class="app-tabs" aria-label="Main sections">
-          <button type="button" class="tab-btn active" data-tab="tab-course">
-            <i class="fa-solid fa-graduation-cap me-1" aria-hidden="true"></i> Cours Gemini (A1→B1)
+        <!-- 3 Simple, Big Navigation Pills -->
+        <nav class="fun-nav" aria-label="Menu principal">
+          <button type="button" class="fun-tab-btn active" data-tab="tab-course">
+            <span class="tab-emoji" aria-hidden="true">🗺️</span> Aventure A1 → B1
           </button>
-          <button type="button" class="tab-btn" data-tab="tab-classes">
-            <i class="fa-solid fa-book-open me-1" aria-hidden="true"></i> Mes Cahiers (1–11)
+          <button type="button" class="fun-tab-btn" data-tab="tab-classes">
+            <span class="tab-emoji" aria-hidden="true">🎒</span> Mes Cours (1–11)
           </button>
-          <button type="button" class="tab-btn" data-tab="tab-exercises">
-            <i class="fa-solid fa-microphone-lines me-1" aria-hidden="true"></i> Exercices &amp; Oral
-          </button>
-          <button type="button" class="tab-btn" data-tab="tab-practice">
-            <i class="fa-solid fa-comments me-1" aria-hidden="true"></i> Pratique Libre (Renée)
-          </button>
-          <button type="button" class="tab-btn" data-tab="tab-b1">
-            <i class="fa-solid fa-trophy me-1" aria-hidden="true"></i> Objectif DELF B1
+          <button type="button" class="fun-tab-btn" data-tab="tab-practice">
+            <span class="tab-emoji" aria-hidden="true">💬</span> Parler avec Renée
           </button>
         </nav>
 
-        <div class="header-actions">
-          <button type="button" id="header-dark-toggle" class="btn btn-sm btn-outline-secondary" title="Dark/Light Mode">
+        <!-- Score / Stars & Settings -->
+        <div class="fun-stats">
+          <div class="xp-pill" title="Tes étoiles et missions réussies">
+            <span aria-hidden="true">⭐</span> <span id="header-stars-count">0</span> XP
+          </div>
+          <button type="button" id="open-cheatsheet-btn" class="fun-icon-btn" title="Mes Astuces (Révision Rapide)">
+            ⚡ Astuces
+          </button>
+          <button type="button" id="header-dark-toggle" class="fun-icon-btn" title="Mode Sombre / Clair">
             <i id="mode-icon" class="fas fa-moon" aria-hidden="true"></i>
           </button>
-          <a href="/setup" class="btn btn-sm btn-outline-secondary" title="Settings">
+          <a href="/setup" class="fun-icon-btn" title="Paramètres">
             <i class="fas fa-cog" aria-hidden="true"></i>
           </a>
         </div>
       </div>
     </header>
 
-    <main class="app-main">
-      <h1 class="visually-hidden">Companion French Tutor &amp; DELF B1 Study Platform</h1>
+    <main class="fun-main">
+      <h1 class="visually-hidden">Apprends le français en t'amusant</h1>
 
       <!-- ========================================================= -->
-      <!-- TAB 0: COURS STRUCTURÉ GEMINI (A1 -> A2 -> B1 + TRACKER)   -->
+      <!-- SECTION 1: AVENTURE A1 -> A2 -> B1 (FUN QUEST MAP & STEPPER)-->
       <!-- ========================================================= -->
       <section id="tab-course" class="tab-section active">
-        <!-- Top Course Tracker & Quick Refresher Bar -->
-        <div id="course-tracker-banner" class="panel-card mb-4"></div>
+        <!-- Map View (Shown when choosing a mission) -->
+        <div id="quest-map-view">
+          <!-- Hero Progress Bar -->
+          <div id="quest-hero-banner" class="fun-card hero-banner mb-4"></div>
 
-        <!-- Quick Refresher Drawer / Cheat-Sheet View (Toggled on demand) -->
-        <div id="course-refresher-panel" class="panel-card mb-4" style="display: none;"></div>
-
-        <!-- Main Course Layout: Left Level/Module Tree + Right Active Module Lesson & Strict Oral Exam -->
-        <div class="row g-4" id="course-main-grid">
-          <div class="col-lg-4 col-md-5">
-            <div class="panel-card">
-              <div class="d-flex justify-content-between align-items-center mb-2">
-                <h2 class="h5 mb-0 fw-bold">
-                  <i class="fa-solid fa-layer-group text-primary me-2" aria-hidden="true"></i>Parcours A1 • A2 • B1
-                </h2>
-                <span class="badge bg-danger">Exigence : ≥ 8/10</span>
-              </div>
-              <p class="small text-muted mb-3">
-                17 modules thématiques présentés par Gemini. Priorité à l'<strong>Oral B1</strong> + <strong>Écrit A2</strong>. Chaque module exige au moins <strong>8/10 à l'oral</strong> pour être validé.
-              </p>
-              <!-- Level filter pills -->
-              <div class="d-flex gap-1 mb-3">
-                <button type="button" class="btn btn-sm btn-primary flex-grow-1 course-level-filter" data-level="ALL">Tous (17)</button>
-                <button type="button" class="btn btn-sm btn-outline-primary flex-grow-1 course-level-filter" data-level="A1">A1 (5)</button>
-                <button type="button" class="btn btn-sm btn-outline-primary flex-grow-1 course-level-filter" data-level="A2">A2 (6)</button>
-                <button type="button" class="btn btn-sm btn-outline-primary flex-grow-1 course-level-filter" data-level="B1">B1 (6)</button>
-              </div>
-              <div id="course-module-list" class="class-list-nav"></div>
-            </div>
+          <!-- Level Filter Buttons -->
+          <div class="level-pills-bar mb-4">
+            <button type="button" class="level-pill active" data-level="ALL">🌟 Tous les Niveaux (17)</button>
+            <button type="button" class="level-pill" data-level="A1">🌱 Niveau A1 (Débutant)</button>
+            <button type="button" class="level-pill" data-level="A2">🚀 Niveau A2 (Quotidien + Écrit)</button>
+            <button type="button" class="level-pill" data-level="B1">👑 Niveau B1 (Champion à l'Oral)</button>
           </div>
 
-          <div class="col-lg-8 col-md-7">
-            <div id="course-module-detail" class="panel-card"></div>
-          </div>
+          <!-- Grid of Quest Cards -->
+          <div id="quest-cards-grid" class="quest-grid"></div>
         </div>
+
+        <!-- Step-by-Step Interactive Mission View (Shown when a mission is clicked!) -->
+        <div id="quest-lesson-view" style="display: none;"></div>
       </section>
 
       <!-- ========================================================= -->
-      <!-- TAB 1: MES COURS (CLASSES 1-11 + UPLOAD NEW CLASS PDF)     -->
+      <!-- SECTION 2: MES COURS (CLASSES 1-11 FROM YOUR NOTEBOOKS)   -->
       <!-- ========================================================= -->
       <section id="tab-classes" class="tab-section" style="display: none;">
-        <div class="row g-4">
-          <!-- Left Sidebar: Class List -->
-          <div class="col-lg-4 col-md-5">
-            <div class="panel-card">
-              <div class="d-flex justify-content-between align-items-center mb-3">
-                <h2 class="h5 mb-0 fw-bold"><i class="fa-solid fa-graduation-cap text-primary me-2" aria-hidden="true"></i>Vos Cours de Français</h2>
-                <button type="button" id="open-import-modal-btn" class="btn btn-sm btn-primary" title="Ajouter un nouveau cours (PDF ou notes)">
-                  <i class="fa-solid fa-plus me-1" aria-hidden="true"></i> Nouveau Cours
-                </button>
-              </div>
-              <p class="small text-muted mb-3">
-                Extraits de vos 3 cahiers PDF (Classes 1 à 11). Cliquez sur un cours pour étudier les règles, écouter la prononciation et pratiquer.
-              </p>
-              <div id="class-list-nav" class="class-list-nav"></div>
+        <!-- Class Grid View -->
+        <div id="classes-grid-view">
+          <div class="fun-card hero-banner-blue mb-4 d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <div>
+              <h2 class="h4 fw-bold mb-1">🎒 Tes 11 Cours de Français (+ Tes Devoirs)</h2>
+              <p class="mb-0 opacity-90">Choisis un cours pour voir la règle simple, écouter les mots et jouer au quiz !</p>
             </div>
-          </div>
-
-          <!-- Right Content: Selected Class Details -->
-          <div class="col-lg-8 col-md-7">
-            <div id="class-detail-view" class="panel-card">
-              <!-- Populated dynamically by main.js -->
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- ========================================================= -->
-      <!-- TAB 2: EXERCICES ÉCRITS & ENTRAÎNEMENT ORAL (SPEAKING)     -->
-      <!-- ========================================================= -->
-      <section id="tab-exercises" class="tab-section" style="display: none;">
-        <div class="panel-card mb-4">
-          <div class="row align-items-center g-3">
-            <div class="col-md-6">
-              <label for="exercise-class-select" class="form-label fw-bold mb-1">
-                <i class="fa-solid fa-bullseye text-primary me-1" aria-hidden="true"></i> Choisissez le cours à pratiquer :
-              </label>
-              <select id="exercise-class-select" class="form-select"></select>
-            </div>
-            <div class="col-md-6 d-flex flex-wrap gap-2 justify-content-md-end align-items-end">
-              <button type="button" id="generate-ai-exercises-btn" class="btn btn-outline-primary">
-                <i class="fa-solid fa-wand-magic-sparkles me-1" aria-hidden="true"></i> Générer de nouveaux exercices (IA)
-              </button>
-              <button type="button" id="jump-to-tutor-focus-btn" class="btn btn-primary">
-                <i class="fa-solid fa-comments me-1" aria-hidden="true"></i> Converser sur ce cours avec Renée
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="row g-4">
-          <!-- Spoken Concept Practice (Oral & Pronunciation Coach) -->
-          <div class="col-lg-6">
-            <div class="panel-card h-100">
-              <div class="d-flex justify-content-between align-items-center mb-3">
-                <h2 class="h5 mb-0 fw-bold">
-                  <i class="fa-solid fa-microphone text-danger me-2" aria-hidden="true"></i>Pratique Orale &amp; Devoirs (Parler)
-                </h2>
-                <span class="badge bg-danger">Micro + Correction B1</span>
-              </div>
-              <p class="small text-muted">
-                Lisez ou écoutez la consigne, cliquez sur <strong>Parler en français</strong> pour enregistrer votre réponse à voix haute, puis recevez la correction complète et le modèle B1 de Renée.
-              </p>
-              <div id="speaking-prompts-container"></div>
-            </div>
-          </div>
-
-          <!-- Written Grammar & Concept Drills -->
-          <div class="col-lg-6">
-            <div class="panel-card h-100">
-              <div class="d-flex justify-content-between align-items-center mb-3">
-                <h2 class="h5 mb-0 fw-bold">
-                  <i class="fa-solid fa-pen-to-square text-primary me-2" aria-hidden="true"></i>Exercices de Grammaire &amp; Concepts
-                </h2>
-                <span class="badge bg-primary" id="written-progress-badge">0 complétés</span>
-              </div>
-              <p class="small text-muted">
-                Vérifiez votre maîtrise des règles du cours (articles, négations, passé composé, accord avec être, pronominaux, impératif, imparfait).
-              </p>
-              <div id="written-exercises-container"></div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- ========================================================= -->
-      <!-- TAB 3: PRATIQUE LIBRE (LIVE TUTOR CHAT WITH RENÉE)         -->
-      <!-- ========================================================= -->
-      <section id="tab-practice" class="tab-section" style="display: none;">
-        <div class="panel-card chat-wrapper">
-          <!-- Topic Focus Selector Bar -->
-          <div class="chat-focus-bar mb-3 pb-3 border-bottom d-flex flex-wrap justify-content-between align-items-center gap-2">
-            <div class="d-flex align-items-center gap-2 flex-grow-1">
-              <label for="chat-focus-select" class="fw-bold small text-nowrap mb-0">
-                <i class="fa-solid fa-compass text-primary me-1" aria-hidden="true"></i> Sujet de conversation :
-              </label>
-              <select id="chat-focus-select" class="form-select form-select-sm" style="max-width: 420px;">
-                <option value="">Conversation libre (Tous niveaux / Quotidien)</option>
-              </select>
-              <button type="button" id="apply-chat-focus-btn" class="btn btn-sm btn-primary">
-                Démarrer ce sujet
-              </button>
-            </div>
-            <div class="d-flex gap-2">
-              <button type="button" id="load-saved-session" class="btn btn-sm btn-outline-secondary" title="Charger la dernière session">
-                <i id="load-saved-icon" class="fa-solid fa-rotate-right" aria-hidden="true"></i> Charger
-              </button>
-              <button type="button" id="save-session" class="btn btn-sm btn-outline-secondary" title="Sauvegarder la session">
-                <i id="save-icon" class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Sauvegarder
-              </button>
-            </div>
-          </div>
-
-          <!-- Initial Click to Begin Banner -->
-          <div class="text-center py-5" id="audio-init">
-            <h2 class="h4 mb-3">Conversation en direct avec Renée</h2>
-            <p class="text-muted mb-4">
-              Pratiquez votre français à l'oral ou à l'écrit. Renée corrige chacune de vos phrases et vous répond à voix haute.
-            </p>
-            <button type="button" class="btn btn-primary btn-lg px-4" id="begin-chat-btn">
-              <i class="fa-solid fa-play me-2" aria-hidden="true"></i> Commencer la conversation
+            <button type="button" id="open-import-modal-btn" class="fun-btn fun-btn-yellow">
+              <i class="fa-solid fa-plus me-1" aria-hidden="true"></i> Ajouter un nouveau cours (PDF)
             </button>
           </div>
 
-          <!-- Main Chat Area -->
+          <div id="classes-cards-grid" class="quest-grid"></div>
+        </div>
+
+        <!-- Single Class Interactive Player (3 simple steps: Règle / Mots / Quiz & Micro) -->
+        <div id="single-class-view" style="display: none;"></div>
+      </section>
+
+      <!-- ========================================================= -->
+      <!-- SECTION 3: PARLER AVEC RENÉE (LIVE CONVERSATION)          -->
+      <!-- ========================================================= -->
+      <section id="tab-practice" class="tab-section" style="display: none;">
+        <div class="fun-card chat-wrapper">
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 pb-3 border-bottom">
+            <div class="d-flex align-items-center gap-2 flex-grow-1">
+              <span class="fs-4" aria-hidden="true">🎯</span>
+              <label for="chat-focus-select" class="fw-bold mb-0">Mission de discussion :</label>
+              <select id="chat-focus-select" class="form-select fun-select" style="max-width: 380px;">
+                <option value="">💬 Discussion libre avec Renée</option>
+              </select>
+              <button type="button" id="apply-chat-focus-btn" class="fun-btn fun-btn-blue btn-sm">
+                Lancer !
+              </button>
+            </div>
+            <div class="d-flex gap-2">
+              <button type="button" id="load-saved-session" class="fun-icon-btn" title="Reprendre la dernière discussion">
+                <i id="load-saved-icon" class="fa-solid fa-rotate-right" aria-hidden="true"></i>
+              </button>
+              <button type="button" id="save-session" class="fun-icon-btn" title="Sauvegarder">
+                <i id="save-icon" class="fa-solid fa-floppy-disk" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="text-center py-5" id="audio-init">
+            <div class="display-3 mb-3" aria-hidden="true">🎙️</div>
+            <h2 class="h3 fw-bold mb-2">Prêt à discuter avec Renée ?</h2>
+            <p class="text-muted mb-4">
+              Parle au micro comme avec une vraie professeure ! Elle t'écoute, te corrige gentiment et te répond à voix haute.
+            </p>
+            <button type="button" class="fun-btn fun-btn-green btn-lg" id="begin-chat-btn">
+              <i class="fa-solid fa-play me-2" aria-hidden="true"></i> Commencer à parler !
+            </button>
+          </div>
+
           <div id="main-chat" style="display: none;">
-            <div id="message-box" class="p-3 mb-3 rounded border"></div>
+            <div id="message-box" class="p-3 mb-3 rounded-4 border"></div>
             <form id="message-form" class="d-flex">
               <div class="input-group">
-                <textarea class="form-control" id="message-input" placeholder="Écrivez ou utilisez le micro (Alt+R) pour parler en français..."></textarea>
-                <button type="submit" id="submit-button" class="btn btn-primary" title="Envoyer">
+                <textarea class="form-control fun-chat-input" id="message-input" placeholder="Écris ici ou clique sur le micro 🎤 pour parler..."></textarea>
+                <button type="submit" id="submit-button" class="btn btn-primary px-3" title="Envoyer">
                   <i class="fas fa-paper-plane" aria-hidden="true"></i>
                 </button>
-                <button type="button" id="lang-toggle-button" class="btn btn-secondary non-mobile" name="lang-record" title="Changer la langue du micro [Alt+L]">
+                <button type="button" id="lang-toggle-button" class="btn btn-secondary non-mobile" name="lang-record" title="Langue du micro [Alt+L]">
                   <span id="lang-text" style="display: block">fr</span>
                   <i class="fa-solid fa-pause" id="pause-icon" style="display: none" aria-hidden="true"></i>
                 </button>
-                <button type="button" id="record-button" class="btn btn-secondary off" name="record" title="Parler au micro [Alt+R]">
-                  <i class="fas fa-microphone" id="record-icon" aria-hidden="true"></i>
+                <button type="button" id="record-button" class="btn btn-danger off px-4" name="record" title="Parler au micro [Alt+R]">
+                  <i class="fas fa-microphone fs-5" id="record-icon" aria-hidden="true"></i>
                 </button>
               </div>
             </form>
           </div>
         </div>
       </section>
-
-      <!-- ========================================================= -->
-      <!-- TAB 4: OBJECTIF DELF B1 (FEASIBILITY, ROADMAP & EXAM SIM)  -->
-      <!-- ========================================================= -->
-      <section id="tab-b1" class="tab-section" style="display: none;">
-        <div id="b1-roadmap-container"></div>
-      </section>
     </main>
 
     <!-- ========================================================= -->
-    <!-- NATIVE DIALOG: IMPORT NEW CLASS PDF OR NOTES               -->
+    <!-- DIALOG 1: MES ASTUCES (QUICK REFRESHER CHEAT-SHEETS)      -->
+    <!-- ========================================================= -->
+    <dialog id="cheatsheet-dialog" class="import-dialog cheatsheet-modal">
+      <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+        <h2 class="h4 fw-bold mb-0">⚡ Mes Cartes Astuces (Révision Rapide)</h2>
+        <button type="button" id="close-cheatsheet-btn" class="btn-close" aria-label="Fermer"></button>
+      </div>
+      <div id="cheatsheet-modal-body"></div>
+    </dialog>
+
+    <!-- ========================================================= -->
+    <!-- DIALOG 2: IMPORT NEW CLASS PDF                            -->
     <!-- ========================================================= -->
     <dialog id="import-class-dialog" class="import-dialog">
       <form id="import-class-form" method="dialog">
         <div class="d-flex justify-content-between align-items-center mb-3">
-          <h2 class="h5 mb-0 fw-bold">
-            <i class="fa-solid fa-file-pdf text-danger me-2" aria-hidden="true"></i>Ajouter un Nouveau Cours (PDF ou Notes)
-          </h2>
+          <h2 class="h5 mb-0 fw-bold">➕ Ajouter un Nouveau Cours (PDF ou Notes)</h2>
           <button type="button" id="close-import-dialog-btn" class="btn-close" aria-label="Fermer"></button>
         </div>
-        <p class="small text-muted">
-          Vous avez 2 cours par semaine : importez le PDF de votre nouveau cours (ou collez vos notes) et Gemini générera automatiquement les fiches de grammaire, le vocabulaire audio et les exercices !
-        </p>
         <div class="row g-3 mb-3">
           <div class="col-sm-6">
             <label for="import-class-number" class="form-label small fw-bold">Numéro du cours</label>
@@ -291,17 +205,17 @@
           </div>
         </div>
         <div class="mb-3">
-          <label for="import-class-file" class="form-label small fw-bold">Fichier PDF du cours (optionnel)</label>
+          <label for="import-class-file" class="form-label small fw-bold">Fichier PDF du cours</label>
           <input type="file" id="import-class-file" name="file" class="form-control" accept="application/pdf">
         </div>
         <div class="mb-3">
-          <label for="import-class-notes" class="form-label small fw-bold">Ou collez vos notes de cours / mots-clés</label>
-          <textarea id="import-class-notes" name="notes" class="form-control" rows="4" placeholder="Collez ici les règles, verbes ou phrases vus pendant le cours..."></textarea>
+          <label for="import-class-notes" class="form-label small fw-bold">Ou colle tes notes ici</label>
+          <textarea id="import-class-notes" name="notes" class="form-control" rows="3" placeholder="Ex: Le futur simple, les pronoms..."></textarea>
         </div>
         <div class="d-flex justify-content-end gap-2">
-          <button type="button" id="cancel-import-btn" class="btn btn-outline-secondary">Annuler</button>
-          <button type="submit" id="submit-import-btn" class="btn btn-primary">
-            <i class="fa-solid fa-wand-magic-sparkles me-1" aria-hidden="true"></i> Créer le cours &amp; les exercices
+          <button type="button" id="cancel-import-btn" class="fun-btn fun-btn-gray">Annuler</button>
+          <button type="submit" id="submit-import-btn" class="fun-btn fun-btn-green">
+            ✨ Créer le cours !
           </button>
         </div>
       </form>
