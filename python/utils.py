@@ -71,12 +71,12 @@ def bot_text_to_speech(text: str, message_index: int, counter: int, voice: Optio
     return filename
 
 
-def init_gemini(config: Config) -> genai.Client:
+def init_gemini(config: Config) -> Optional[genai.Client]:
     """
     Initialize Gemini GenAI client from Config or environment variables.
 
     :param config: Config
-    :return: genai.Client
+    :return: genai.Client or None if no API key is configured yet
     """
     gemini_config: dict = config.get("gemini", {}) or config.get("openai", {}) or {}
     api_key = gemini_config.get("api_key", None)
@@ -86,8 +86,8 @@ def init_gemini(config: Config) -> genai.Client:
         api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
 
     if api_key:
-        return genai.Client(api_key=api_key)
-    return genai.Client()
+        return genai.Client(api_key=api_key.strip())
+    return None
 
 
 def get_error_message_from_exception(e: Exception) -> str:

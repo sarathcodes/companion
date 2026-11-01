@@ -103,6 +103,10 @@ def setup():
                 "auto_send_recording": bool(request.form.get('auto-send-switch'))
             }
         }
+        api_key = (request.form.get('gemini-api-key') or '').strip()
+        if api_key:
+            with open(os.path.join(os.getcwd(), 'keys.yml'), 'w') as keyfile:
+                yaml.dump({'gemini': {'api_key': api_key}}, keyfile, allow_unicode=True)
         with open(os.path.join(os.getcwd(), filename), 'w') as outfile:
             yaml.dump(data, outfile, allow_unicode=True)
         return jsonify({'status': 'success'})
@@ -454,10 +458,16 @@ def restart() -> None:
         app_cache.server_errors.append("Config file not found. Go to /setup to configure the app.")
         config = Config({'bot': {'voice': 'Kore'}})
 
-    if app_cache.keys_file:
+    if app_cache.keys_file and os.path.exists(app_cache.keys_file):
         config.update_from_yml_file(app_cache.keys_file)
+    elif os.path.exists("keys.yml"):
+        config.update_from_yml_file("keys.yml")
 
     gemini_client = utils.init_gemini(config)
+    if gemini_client is None:
+        app_cache.server_errors.append(
+            "Gemini API key not found. Set GEMINI_API_KEY in your terminal or enter it in /setup (Advanced options)."
+        )
     config.update(gemini={'client': gemini_client})
 
     language.init_language(client=gemini_client)
