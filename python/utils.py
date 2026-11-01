@@ -3,6 +3,9 @@ import os
 import shutil
 from google import genai
 from pydub import AudioSegment
+
+if "/opt/homebrew/bin" not in os.environ.get("PATH", ""):
+    os.environ["PATH"] = f"/opt/homebrew/bin:{os.environ.get('PATH', '')}"
 from typing import List, Optional
 from python import speech
 from python.config import Config
@@ -65,7 +68,7 @@ def bot_text_to_speech(text: str, message_index: int, counter: int, voice: Optio
     :param voice: an optional alternative voice name, instead of the default one
     :return: file name of speech recording
     """
-    filename = os.path.join(TEMP_DIR, f"bot_speech_{message_index}_{counter}.wav")
+    filename = os.path.join(TEMP_DIR, f"bot_speech_{message_index}_{counter}.mp3")
     return speech.text2speech(text, filename, voice=voice)
 
 

@@ -1,12 +1,13 @@
 import os
 import re
 import base64
+import asyncio
+import edge_tts
 from google import genai
 from typing import Dict, List, Optional
 from python.config import Config
 from python.consts import (
     DEFAULT_STT_MODEL,
-    DEFAULT_TTS_MODEL,
     GEMINI_FEMALE_VOICES,
     GEMINI_MALE_VOICES,
     SUPPORTED_OUTPUT_LOCALES,
@@ -14,46 +15,71 @@ from python.consts import (
 
 gemini_client: Optional[genai.Client] = None
 default_voice: str = "Kore"
+default_gender: str = "female"
+default_learning_lang: str = "fr"
+
+# Map language ISO codes to natural neural voices (female, male)
+LOCALE_NEURAL_VOICES = {
+    "fr": ("fr-FR-VivienneMultilingualNeural", "fr-FR-RemyMultilingualNeural"),
+    "es": ("es-ES-ElviraNeural", "es-ES-AlvaroNeural"),
+    "de": ("de-DE-SeraphinaMultilingualNeural", "de-DE-FlorianMultilingualNeural"),
+    "it": ("it-IT-ElsaNeural", "it-IT-DiegoNeural"),
+    "pt": ("pt-BR-ThalitaMultilingualNeural", "pt-BR-AntonioNeural"),
+    "en": ("en-US-avaMultilingualNeural", "en-US-AndrewMultilingualNeural"),
+    "nl": ("nl-NL-ColetteNeural", "nl-NL-MaartenNeural"),
+    "ru": ("ru-RU-SvetlanaNeural", "ru-RU-DmitryNeural"),
+    "ja": ("ja-JP-NanamiNeural", "ja-JP-KeitaNeural"),
+    "ko": ("ko-KR-SunHiNeural", "ko-KR-InJoonNeural"),
+    "zh": ("zh-CN-XiaoxiaoNeural", "zh-CN-YunxiNeural"),
+    "ar": ("ar-SA-ZariyahNeural", "ar-SA-HamedNeural"),
+    "hi": ("hi-IN-SwaraNeural", "hi-IN-MadhurNeural"),
+}
 
 
 def init_speech(config: Config, client: genai.Client) -> None:
     """
-    Initialize Gemini client and default voice for speech-to-text and text-to-speech
+    Initialize speech-to-text and text-to-speech configuration
 
     :param config: Config
     :param client: a Google GenAI Client object
     """
-    global gemini_client, default_voice
+    global gemini_client, default_voice, default_gender, default_learning_lang
 
     gemini_client = client
-    configured_voice = config.get("bot", {}).get("voice", "Kore") if config else "Kore"
-    default_voice = get_voice_object(voice_name=configured_voice)
+    bot_cfg = config.get("bot", {}) if config else {}
+    lang_cfg = config.get("language", {}) if config else {}
+    default_voice = bot_cfg.get("voice", "Kore") or "Kore"
+    default_gender = (bot_cfg.get("gender", "female") or "female").lower()
+    default_learning_lang = (lang_cfg.get("learning", "fr") or "fr").split("-")[0].lower()
 
 
 def get_voice_object(voice_name: str, language_code: Optional[str] = None) -> str:
     """
-    Normalize a voice name for Gemini TTS.
-    Falls back to 'Kore' if a legacy Google Cloud TTS placeholder (e.g. 'xx-xx' or 'fr-FR-Neural2-A') is provided.
-
-    :param voice_name: voice name (e.g. 'Kore', 'Puck', or 'voice_...')
-    :param language_code: optional language code (unused, as Gemini 3.8 TTS detects language automatically)
-    :return: normalized voice name string
+    Resolve a voice identifier for TTS synthesis.
     """
-    if not voice_name or ("-" in voice_name and not voice_name.startswith("voice_")):
-        return "Kore"
-    return voice_name
+    if voice_name and "Neural" in voice_name:
+        return voice_name
+    lang_prefix = (language_code or default_learning_lang or "fr").split("-")[0].lower()
+    female_neural, male_neural = LOCALE_NEURAL_VOICES.get(
+        lang_prefix, ("fr-FR-VivienneMultilingualNeural", "fr-FR-RemyMultilingualNeural")
+    )
+    if voice_name in GEMINI_MALE_VOICES or default_gender == "male":
+        return male_neural
+    return female_neural
 
 
 def speech2text(filename: str, language: Optional[str] = None) -> str:
     """
     Convert audio file containing user recording to text using Gemini 3.5 Transcribe
 
-    :param filename: audio filename with recording
+    :param filename: mp3 filename with recording
     :param language: ISO 639-1 or BCP-47 code of the language spoken in the recording.
                      If None, Gemini 3.5 Transcribe detects the language automatically.
     :return: transcribed text
     """
-    audio_file = gemini_client.files.upload(file=filename)
+    with open(filename, "rb") as f:
+        audio_b64 = base64.b64encode(f.read()).decode("utf-8")
+
     language_codes: List[str] = []
     if language:
         matched_locales = [loc for loc in SUPPORTED_OUTPUT_LOCALES if loc.lower().startswith(f"{language.lower()}-")]
@@ -64,7 +90,11 @@ def speech2text(filename: str, language: Optional[str] = None) -> str:
 
     response = gemini_client.interactions.create(
         model=DEFAULT_STT_MODEL,
-        input=[audio_file],
+        input=[{
+            "type": "audio",
+            "data": audio_b64,
+            "mime_type": "audio/mp3",
+        }],
         generation_config={
             "transcription_config": {
                 "language_codes": language_codes,
@@ -77,54 +107,28 @@ def speech2text(filename: str, language: Optional[str] = None) -> str:
 
 def text2speech(text: str, filename: str, voice: Optional[str] = None) -> str:
     """
-    Convert text to speech using Gemini 3.8 TTS (`gemini-3.8-flash-lite-tts`)
+    Convert text to speech using neural TTS (`edge-tts`) for sub-second, quota-free synthesis.
 
     :param text: text to be converted
-    :param filename: file path to save the synthesized speech audio (WAV format, decoded natively by Web Audio API)
+    :param filename: mp3 file path to save the synthesized speech audio
     :param voice: an optional alternative voice name, instead of the default one
     :return: filename if audio was generated, or empty string if skipped
     """
-    # Strip markdown formatting characters and normalize whitespace before TTS synthesis
     clean_text = re.sub(r"[*_#`~]+", "", text or "")
     clean_text = re.sub(r"\s+", " ", clean_text).strip()
     if not clean_text or not any(c.isalnum() for c in clean_text):
         return ""
 
-    selected_voice = get_voice_object(voice or default_voice)
-    interaction = gemini_client.interactions.create(
-        model=DEFAULT_TTS_MODEL,
-        input=[{
-            "type": "user_input",
-            "content": [{
-                "type": "text",
-                "text": clean_text,
-                "annotations": [{
-                    "type": "speech_metadata",
-                    "style": "warm, clear, and natural language tutor",
-                }],
-            }],
-        }],
-        response_format={"type": "audio"},
-        generation_config={
-            "speech_config": [
-                {"voice": selected_voice},
-            ]
-        },
-        store=False,
-    )
-
-    if interaction.output_audio and interaction.output_audio.data:
-        audio_bytes = base64.b64decode(interaction.output_audio.data)
-        with open(filename, "wb") as audio_file:
-            audio_file.write(audio_bytes)
-        if os.path.exists(filename) and os.path.getsize(filename) > 0:
-            return filename
+    neural_voice = get_voice_object(voice or default_voice)
+    asyncio.run(edge_tts.Communicate(clean_text, neural_voice).save(filename))
+    if os.path.exists(filename) and os.path.getsize(filename) > 0:
+        return filename
     return ""
 
 
 def voices_by_features() -> Dict[str, Dict[str, List[str]]]:
     """
-    Return voices supported by Gemini 3.8 TTS, organized by language locale and gender.
+    Return voices supported by TTS, organized by language locale and gender.
 
     :return: Dict: {lang_locale: {gender: [list of voices]}}
     """

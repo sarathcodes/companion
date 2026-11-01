@@ -112,8 +112,10 @@ async function playSingleAudioFile(file_url) {
 
 function pauseAudio() {
     isPaused = true;
-    source.stop();
-    pauseTime = audioCtx.currentTime - startTime;
+    if (source) {
+        try { source.stop(); } catch (e) {}
+    }
+    pauseTime = audioCtx ? (audioCtx.currentTime - startTime) : 0;
     isPlaying = false;
 }
 
@@ -122,7 +124,9 @@ function stopAudio() {
     stopPlaying = true;
     isPlaying = false;
     isPaused = false;
-    source.stop();
+    if (source) {
+        try { source.stop(); } catch (e) {}
+    }
     $.get('/clear_audio_queue', function (response) {});
     audioBuffers = [];
     pauseTime = 0;  // Reset the pause time so the audio starts from the beginning next time
