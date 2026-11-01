@@ -1,106 +1,276 @@
 :root {
-  --background: #ffffff;
-  --primary: #007bff;
-  --secondary: #2c2c2c;
-  --font-color: #000000;
-  --menu-font-color: #000000;
-  --card-color: #f8f9fa;
-  --shadow: rgba(0, 0, 0, 0.1);
+  --background: #f4f7fb;
+  --surface: #ffffff;
+  --surface-alt: #f8fafc;
+  --border-color: #e2e8f0;
+  --primary: #2563eb;
+  --primary-soft: #eff6ff;
+  --secondary: #475569;
+  --font-color: #0f172a;
+  --muted-color: #64748b;
+  --card-color: #ffffff;
+  --shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
   --fa-filter: none;
-  --logo-color: #90b2e3;
+  --logo-color: #2563eb;
 }
 
 .dark-mode {
-    --background: #121212;
-    --secondary: #7e7e7e;
-    --font-color: #9c9c9c;
-    --menu-font-color: #ffffff;
-    --card-color: #ededed;
-    --shadow: rgba(255, 255, 255, 0.1);
-    --fa-filter: invert(1);
+  --background: #0f172a;
+  --surface: #1e293b;
+  --surface-alt: #0f172a;
+  --border-color: #334155;
+  --primary: #3b82f6;
+  --primary-soft: #1e3a8a;
+  --secondary: #94a3b8;
+  --font-color: #f8fafc;
+  --muted-color: #94a3b8;
+  --card-color: #1e293b;
+  --shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  --fa-filter: invert(1);
 }
 
-body {
+html, body {
+  min-height: 100%;
   background-color: var(--background);
-  font-family: 'Roboto', sans-serif;
+  color: var(--font-color);
+  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-h1 {
-  font-weight: 300;
-  letter-spacing: 1.5px;
-  font-size: 2.5rem;
-  margin-top: 2rem;
+/* Header & Navigation */
+.app-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border-color);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.app-header-inner {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 0.65rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.brand-area {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.brand-logo {
+  max-height: 40px;
+  width: auto;
+}
+
+.brand-subtitle {
+  font-size: 0.85rem;
+}
+
+.app-tabs {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.tab-btn {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--secondary);
+  font-weight: 500;
+  font-size: 0.92rem;
+  padding: 0.48rem 0.95rem;
+  border-radius: 999px;
+  transition: all 0.15s ease;
+}
+
+.tab-btn:hover {
+  background: var(--surface-alt);
   color: var(--font-color);
 }
 
-.btn {
-  border-radius: 50px;
+.tab-btn.active {
+  background: var(--primary);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
 }
 
-.btn-primary {
-  background-color: var(--primary);
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
-.card {
-  height: 100%;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  /*background-color: var(--card-color)!important;*/
+/* Main Layout */
+.app-main {
+  max-width: 1320px;
+  margin: 1.5rem auto 3rem;
+  padding: 0 1.25rem;
 }
 
-
-html, body {
-  height: 100%;
+.panel-card {
+  background: var(--surface);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 1.35rem;
+  box-shadow: var(--shadow);
 }
 
-.container {
-  height: 100%;
+/* Class List Sidebar */
+.class-list-nav {
   display: flex;
   flex-direction: column;
-  max-width: 850px;
+  gap: 0.5rem;
+  max-height: 72vh;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.class-nav-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  text-align: left;
+  width: 100%;
+  background: var(--surface-alt);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 0.75rem 0.9rem;
+  color: var(--font-color);
+  transition: all 0.15s ease;
+}
+
+.class-nav-item:hover {
+  border-color: var(--primary);
+}
+
+.class-nav-item.active {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+}
+
+.class-num-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+
+/* Concept Cards & Examples */
+.concept-card {
+  background: var(--surface-alt);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 1.1rem;
+  margin-bottom: 1rem;
+}
+
+.rule-list {
+  padding-left: 1.2rem;
+  margin-bottom: 0.75rem;
+}
+
+.rule-list li {
+  margin-bottom: 0.35rem;
+  line-height: 1.5;
+}
+
+.example-box {
+  background: var(--surface);
+  border-left: 4px solid var(--primary);
+  border-radius: 8px;
+  padding: 0.65rem 0.9rem;
+  margin-top: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.vocab-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.75rem;
+}
+
+.vocab-item {
+  background: var(--surface-alt);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 0.7rem 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.tts-btn {
+  border-radius: 50%;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Exercises & Oral Practice Cards */
+.exercise-card {
+  background: var(--surface-alt);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 1.05rem;
+  margin-bottom: 1rem;
+}
+
+.speaking-card {
+  background: var(--surface-alt);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 1.15rem;
+  margin-bottom: 1.15rem;
+}
+
+.feedback-box {
+  background: var(--surface);
+  border: 1px solid var(--border-color);
+  border-left: 4px solid #10b981;
+  border-radius: 10px;
+  padding: 0.95rem;
+  margin-top: 0.85rem;
+}
+
+.feedback-box.needs-work {
+  border-left-color: #f59e0b;
+}
+
+/* Free Practice Chat */
+.chat-wrapper {
+  max-width: 960px;
+  margin: 0 auto;
 }
 
 #message-box {
-  flex-grow: 1;
+  height: 56vh;
   overflow-y: auto;
-  margin-bottom: 1rem;
-  background-color: var(--background)!important;
+  background-color: var(--surface-alt) !important;
+  border-color: var(--border-color) !important;
 }
 
-.sound-icon {
-  font-size: 1.2rem;
-  cursor: pointer;
-  position: absolute;
-  right: 10px;
-  top: 50%;
-  transform: translateY(-50%);
+.card {
+  border-radius: 10px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.06);
 }
 
 .card-body {
   position: relative;
-  padding-right: 35px;
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-#loading-icon {
-  animation: spin 2s linear infinite;
-}
-
-#message-form {
-  margin-bottom: 2rem; /* Add margin below the text box */
-}
-
-.row > .col {
-  display: flex;
-  align-items: start;
+  padding-right: 42px;
 }
 
 img.profile-pic {
@@ -125,74 +295,36 @@ img.profile-pic {
   padding: 0;
 }
 
-.fa-spinner {
-    filter: var(--fa-filter);
-}
-
 #message-input {
   overflow-y: auto;
-  height: 1.5em; /* 1 line */
-  max-height: 4.5em; /* 3 lines */
+  height: 2.4em;
+  max-height: 5.5em;
   resize: none;
 }
 
-
-/* Add a black background color to the top navigation */
-.topnav {
-  z-index: 9;
-  overflow: hidden;
-  display: none;
-  position: absolute;
-  background: var(--background);
-  color: var(--menu-font-color);
-}
-.topnav.desktop-menu { display: block; }
-
-/* Style the links inside the navigation bar */
-.topnav a {
-  float: left;
-  display: block;
-  text-align: center;
-  padding: 14px 16px;
-  text-decoration: none;
-  font-size: 17px;
-  color: inherit;
-}
-.topnav a.icon {
-  position: relative;
-  color: var(--logo-color);
+/* Native Dialog Modal */
+.import-dialog {
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 1.5rem;
+  max-width: 540px;
+  width: 92%;
+  background: var(--surface);
+  color: var(--font-color);
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.25);
 }
 
-/* When the screen is less than 600 pixels wide, hide all links, except for the first one ("Home"). Show the link that contains should open and close the topnav (.icon) */
-/* The "responsive" class is added to the topnav with JavaScript when the user clicks on the icon. This class makes the topnav look good on small screens (display the links vertically instead of horizontally) */
-@media screen and (max-width: 600px) {
-  .topnav { display: block; }
-  .topnav.desktop-menu { display: none; }
-  .topnav.responsive { border: solid 1px var(--logo-color) }
-  .topnav a {display: none;}
-  .topnav a.icon {
-    float: right;
-    display: block;
-  }
-  .topnav.responsive a.icon {
-    right: 0;
-    top: 0;
-    color: var(--menu-font-color);;
-  }
-  .topnav.responsive a {
-    float: none;
-    display: block;
-    text-align: left;
-  }
+.import-dialog::backdrop {
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(2px);
+}
+
+@media screen and (max-width: 768px) {
   .non-mobile {
     display: none;
   }
-  .btn {
-    border-radius: 0;
-  }
-  img.profile-pic {
-    align-self: flex-start;
-    width: 35px;
-    height: 35px;
+  .app-header-inner {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }

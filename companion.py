@@ -9,7 +9,7 @@ from threading import Thread
 from unidecode import unidecode
 from flask import Flask, render_template, request, jsonify, url_for, redirect
 from queue import Empty as EmptyQueue
-from python import speech, language, utils
+from python import speech, language, utils, curriculum
 from python.memory import Memory
 from python.config import Config
 from python.chatbot import Chatbot
@@ -430,6 +430,166 @@ def print_memory_updates():
     Helper endpoint for debugging. Print memory updates.
     """
     return json.dumps(memory.updates, indent=4)
+
+
+@app.route('/api/curriculum', methods=['GET'])
+def api_get_curriculum():
+    """
+    Return all structured class modules (Classes 1-11 + custom uploaded classes), DELF B1 roadmap, and study progress.
+    """
+    return jsonify({
+        'classes': curriculum.get_all_classes(),
+        'roadmap': curriculum.DELF_B1_ROADMAP,
+        'progress': curriculum.load_progress(),
+    })
+
+
+@app.route('/api/speak_french', methods=['POST'])
+def api_speak_french():
+    """
+    Synthesize any French phrase/sentence on demand and return the MP3 file URL for immediate browser playback.
+    """
+    import time
+    text = (request.form.get('text') or '').strip()
+    if not text:
+        return jsonify({'file_url': None, 'error': 'Empty text'})
+    try:
+        os.makedirs(TEMP_DIR, exist_ok=True)
+        stamp = int(time.time() * 1000) % 1000000
+        filename = utils.bot_text_to_speech(text=text, message_index=999, counter=stamp)
+        file_url = url_for('static', filename=f'{TEMP_DIR_NAME}/{os.path.basename(filename)}')
+        return jsonify({'file_url': file_url, 'error': None})
+    except Exception as e:
+        return jsonify({'file_url': None, 'error': utils.get_error_message_from_exception(e)})
+
+
+@app.route('/api/evaluate_exercise', methods=['POST'])
+def api_evaluate_exercise():
+    """
+    Evaluate a user's written or spoken exercise response using Gemini and optionally synthesize spoken feedback.
+    """
+    import time
+    class_id = request.form.get('class_id', 'class-11')
+    item_id = request.form.get('item_id', '')
+    prompt_text = request.form.get('prompt_text', '')
+    user_answer = (request.form.get('user_answer') or '').strip()
+    expected_answer = request.form.get('expected_answer', '')
+    mode = request.form.get('mode', 'speaking')
+
+    if not user_answer:
+        return jsonify({'error': 'Please enter or record your answer in French first.'}), 400
+
+    try:
+        evaluation = curriculum.evaluate_answer_with_gemini(
+            client=config.gemini.client,
+            class_id=class_id,
+            prompt_text=prompt_text,
+            user_answer=user_answer,
+            expected_answer=expected_answer,
+            mode=mode,
+        )
+        if item_id and evaluation.get('score', 0) >= 6:
+            category = 'completed_speaking' if mode == 'speaking' else 'completed_exercises'
+            curriculum.save_progress_item(category, item_id)
+
+        audio_url = None
+        spoken_fr = evaluation.get('spoken_feedback_fr', '')
+        if spoken_fr and mode == 'speaking':
+            try:
+                stamp = int(time.time() * 1000) % 1000000
+                filename = utils.bot_text_to_speech(text=spoken_fr, message_index=998, counter=stamp)
+                audio_url = url_for('static', filename=f'{TEMP_DIR_NAME}/{os.path.basename(filename)}')
+            except Exception:
+                audio_url = None
+
+        return jsonify({
+            'evaluation': evaluation,
+            'audio_url': audio_url,
+            'progress': curriculum.load_progress(),
+            'error': None,
+        })
+    except Exception as e:
+        return jsonify({'evaluation': None, 'error': utils.get_error_message_from_exception(e)})
+
+
+@app.route('/api/mark_progress', methods=['POST'])
+def api_mark_progress():
+    category = request.form.get('category', 'completed_exercises')
+    item_id = request.form.get('item_id', '')
+    progress = curriculum.save_progress_item(category, item_id) if item_id else curriculum.load_progress()
+    return jsonify({'progress': progress})
+
+
+@app.route('/api/generate_exercises', methods=['POST'])
+def api_generate_exercises():
+    """
+    Generate fresh written and oral exercises for a selected class using Gemini.
+    """
+    class_id = request.form.get('class_id', 'class-11')
+    try:
+        generated = curriculum.generate_dynamic_exercises(client=config.gemini.client, class_id=class_id)
+        return jsonify({'generated': generated, 'error': None})
+    except Exception as e:
+        return jsonify({'generated': None, 'error': utils.get_error_message_from_exception(e)})
+
+
+@app.route('/api/import_class', methods=['POST'])
+def api_import_class():
+    """
+    Import a new class module from an uploaded PDF file or pasted class notes using Gemini.
+    """
+    try:
+        class_number = int(request.form.get('class_number', len(curriculum.get_all_classes()) + 1))
+        class_date = request.form.get('class_date', 'New Class')
+        raw_notes = request.form.get('notes', '')
+        pdf_bytes = None
+        if 'file' in request.files and request.files['file'].filename:
+            pdf_bytes = request.files['file'].read()
+        if not pdf_bytes and not raw_notes.strip():
+            return jsonify({'new_class': None, 'error': 'Please upload a PDF or paste your class notes.'})
+        new_class = curriculum.import_new_class_from_pdf_or_text(
+            client=config.gemini.client,
+            class_number=class_number,
+            class_date=class_date,
+            raw_notes=raw_notes,
+            pdf_bytes=pdf_bytes,
+        )
+        return jsonify({'new_class': new_class, 'classes': curriculum.get_all_classes(), 'error': None})
+    except Exception as e:
+        return jsonify({'new_class': None, 'error': utils.get_error_message_from_exception(e)})
+
+
+@app.route('/api/set_chat_focus', methods=['POST'])
+def api_set_chat_focus():
+    """
+    Focus the live tutor chat on a specific class or DELF B1 oral exam task.
+    """
+    global memory, chatbot
+    focus_id = request.form.get('focus_id', '')
+    focus_context = None
+    if focus_id.startswith('class-'):
+        cls = curriculum.get_class_by_id(focus_id)
+        if cls:
+            vocab_list = ', '.join(v['fr'] for v in cls.get('vocabulary', [])[:8])
+            concepts_list = '; '.join(c['title'] for c in cls.get('concepts', []))
+            focus_context = (
+                f"Class {cls['number']}: {cls['title']}. Summary: {cls['summary']} "
+                f"Grammar concepts to practice: {concepts_list}. Key vocabulary to encourage: {vocab_list}. "
+                f"Homework topic: {cls.get('homework', '')}"
+            )
+    elif focus_id.startswith('b1-oral-'):
+        for sim in curriculum.DELF_B1_ROADMAP['b1_speaking_simulators']:
+            if sim['id'] == focus_id:
+                focus_context = (
+                    f"DELF B1 Oral Exam Simulation — {sim['part']} ({sim['title']}). "
+                    f"Examiner prompt: {sim['prompt_fr']}. Coaching tips: {sim['tips']}"
+                )
+                break
+
+    memory = Memory()
+    chatbot = Chatbot(config=config, memory=memory)
+    chatbot.set_focus_context(focus_context)
+    return jsonify({'status': 'success', 'focus_context': focus_context})
 
 
 def exit_graceful(signum, frame) -> None:

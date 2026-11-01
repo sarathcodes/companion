@@ -64,7 +64,15 @@ class Chatbot:
             teacher_name=config.bot.name, user_name=config.user.name, language=lang, user_language=user_lang,
             level=config.language.level, user_gender=config.user.gender, bot_gender=config.bot.gender
         ))
+        self._focus_context: Optional[str] = None
         self._memory.add("system", self._system_prompt)
+
+    def set_focus_context(self, focus_context: Optional[str]) -> None:
+        """
+        Set an optional class or DELF B1 focus topic for the conversation session.
+        """
+        self._focus_context = focus_context
+        self._last_interaction_id = None
 
     def get_response(self, is_initial_message: bool = False) -> Generator[str, None, None]:
         """
@@ -75,10 +83,18 @@ class Chatbot:
         """
         history = self._memory.get_chat_history()
         system_instruction = self._system_prompt
+        if self._focus_context:
+            system_instruction += f"\n\nCURRENT LESSON FOCUS:\n{self._focus_context}"
 
         if is_initial_message:
             self._last_interaction_id = None
-            user_prompt = dedent(INITIAL_MESSAGE.format(language=self._language_name))
+            if self._focus_context:
+                user_prompt = (
+                    f"Start our session now focusing on: {self._focus_context}. "
+                    f"Greet me warmly and ask me a first practice question on this topic in {self._language_name}."
+                )
+            else:
+                user_prompt = dedent(INITIAL_MESSAGE.format(language=self._language_name))
         else:
             user_prompt = history[-1]["content"] + dedent(
                 TUTOR_INSTRUCTIONS.format(language=self._language_name)
