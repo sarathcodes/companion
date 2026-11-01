@@ -319,6 +319,48 @@ img.profile-pic {
   backdrop-filter: blur(2px);
 }
 
+/* Gemini Structured Course & Quick Refresher Styles */
+.gemini-presenter-box {
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(139, 92, 246, 0.08));
+  border: 1px solid rgba(37, 99, 235, 0.25);
+  border-radius: 12px;
+  padding: 1.15rem;
+}
+
+.refresher-formula-box {
+  background: var(--surface-alt);
+  border-left: 4px solid #8b5cf6;
+  border-radius: 10px;
+  padding: 0.9rem 1.05rem;
+}
+
+.strict-exam-box {
+  background: var(--surface-alt);
+  border: 2px solid rgba(220, 38, 38, 0.35);
+  border-radius: 14px;
+  padding: 1.25rem;
+}
+
+.strict-exam-box.mastered {
+  border-color: rgba(16, 185, 129, 0.55);
+}
+
+.refresher-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  gap: 1rem;
+}
+
+.refresher-card {
+  background: var(--surface-alt);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
 @media screen and (max-width: 768px) {
   .non-mobile {
     display: none;

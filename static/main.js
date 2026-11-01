@@ -8,6 +8,21 @@ let selectedClassId = "class-11"; // Default to latest class (Class 11) so user 
 let activeOralRecordingId = null;
 let activeOralBlobPromise = null;
 
+// Structured Course (A1 -> A2 -> B1) State
+let structuredCourseLevels = [];
+let allCourseModules = [];
+let courseProgress = {
+  mastered_modules: [],
+  module_scores: {},
+  attempts_count: {},
+  needs_review_modules: [],
+  completed_a2_writing: []
+};
+let selectedCourseModuleId = "b1-m1";
+let selectedCourseLevelFilter = "ALL";
+let refresherFilter = "ALL";
+let isRefresherOpen = false;
+
 function escapeHtml(str) {
   if (str === null || str === undefined) return "";
   return String(str)
@@ -205,6 +220,12 @@ function populateClassSelectors() {
   if (b1Roadmap && b1Roadmap.b1_speaking_simulators) {
     b1Roadmap.b1_speaking_simulators.forEach(function (sim) {
       $chatSelect.append(`<option value="${escapeHtml(sim.id)}">DELF B1 Oral — ${escapeHtml(sim.part)} : ${escapeHtml(sim.title)}</option>`);
+    });
+  }
+
+  if (allCourseModules && allCourseModules.length > 0) {
+    allCourseModules.forEach(function (m) {
+      $chatSelect.append(`<option value="${escapeHtml(m.id)}">Cours Gemini ${escapeHtml(m.code)} (${escapeHtml(m.theme)}) : ${escapeHtml(m.title)}</option>`);
     });
   }
 
@@ -454,6 +475,516 @@ function renderB1Roadmap() {
   $container.html(html);
 }
 
+// =========================================================
+// STRUCTURED COURSE (A1 -> A2 -> B1) PRESENTED BY GEMINI
+// =========================================================
+
+function loadStructuredCourseData() {
+  $.get("/api/structured_course", function (data) {
+    structuredCourseLevels = data.levels || [];
+    courseProgress = data.progress || {
+      mastered_modules: [],
+      module_scores: {},
+      attempts_count: {},
+      needs_review_modules: [],
+      completed_a2_writing: []
+    };
+    allCourseModules = [];
+    structuredCourseLevels.forEach(function (lvl) {
+      (lvl.modules || []).forEach(function (m) {
+        allCourseModules.push(m);
+      });
+    });
+
+    if (allCourseModules.length > 0 && !allCourseModules.some(m => m.id === selectedCourseModuleId)) {
+      selectedCourseModuleId = allCourseModules[0].id;
+    }
+
+    renderCourseTrackerBanner();
+    renderCourseRefresherPanel();
+    renderCourseSidebar();
+    renderCourseModuleDetail(selectedCourseModuleId);
+    populateClassSelectors();
+  });
+}
+
+function getLevelStats(levelCode) {
+  const mods = allCourseModules.filter(m => m.level === levelCode);
+  const mastered = mods.filter(m => (courseProgress.mastered_modules || []).includes(m.id)).length;
+  const total = mods.length || 1;
+  return {
+    mastered: mastered,
+    total: mods.length,
+    pct: Math.round((mastered / total) * 100)
+  };
+}
+
+function renderCourseTrackerBanner() {
+  const a1 = getLevelStats("A1");
+  const a2 = getLevelStats("A2");
+  const b1 = getLevelStats("B1");
+  const totalMastered = (courseProgress.mastered_modules || []).length;
+  const totalMods = allCourseModules.length || 17;
+  const overallPct = Math.round((totalMastered / totalMods) * 100);
+  const reviewCount = (courseProgress.needs_review_modules || []).length;
+  const a2WrittenDone = (courseProgress.completed_a2_writing || []).length;
+
+  const html = `
+    <div class="row align-items-center g-3">
+      <div class="col-lg-5">
+        <div class="d-flex align-items-center gap-2 mb-1">
+          <span class="badge bg-primary"><i class="fa-solid fa-wand-magic-sparkles me-1"></i>Présenté par Gemini</span>
+          <span class="badge bg-danger"><i class="fa-solid fa-gavel me-1"></i>Mode Strict : 8/10 requis</span>
+          <span class="badge bg-success">Oral B1 + Écrit A2</span>
+        </div>
+        <h2 class="h4 fw-bold mb-1">Parcours Structuré A1 → A2 → B1</h2>
+        <p class="small text-muted mb-2">
+          Chaque module possède son <strong>thème</strong>, son <strong>vocabulaire audio</strong>, son <strong>aide-mémoire</strong> et un <strong>examen oral strict</strong> qui vérifie que vous maîtrisez vraiment le concept.
+        </p>
+        <div class="d-flex flex-wrap gap-2">
+          <button type="button" id="toggle-refresher-btn" class="btn btn-sm ${isRefresherOpen ? 'btn-primary' : 'btn-outline-primary'}">
+            <i class="fa-solid fa-bolt me-1"></i> ${isRefresherOpen ? 'Fermer l\'Aide-Mémoire' : 'Aide-Mémoire & Révision Rapide (17 fiches)'}
+          </button>
+          <button type="button" id="flash-oral-quiz-btn" class="btn btn-sm btn-outline-danger" title="Tester un concept au hasard à l'oral">
+            <i class="fa-solid fa-shuffle me-1"></i> Quiz Oral Flash (Aléatoire)
+          </button>
+        </div>
+      </div>
+
+      <div class="col-lg-7">
+        <div class="row g-2">
+          <div class="col-sm-4">
+            <div class="p-2 rounded bg-light dark-surface border">
+              <div class="d-flex justify-content-between small fw-bold mb-1">
+                <span>Niveau A1 (Survie Orale)</span>
+                <span class="text-primary">${a1.mastered}/${a1.total}</span>
+              </div>
+              <div class="progress" style="height: 8px;">
+                <div class="progress-bar bg-info" role="progressbar" style="width: ${a1.pct}%"></div>
+              </div>
+            </div>
+          </div>
+          <div class="col-sm-4">
+            <div class="p-2 rounded bg-light dark-surface border">
+              <div class="d-flex justify-content-between small fw-bold mb-1">
+                <span>Niveau A2 (Oral + Écrit A2)</span>
+                <span class="text-primary">${a2.mastered}/${a2.total}</span>
+              </div>
+              <div class="progress" style="height: 8px;">
+                <div class="progress-bar bg-primary" role="progressbar" style="width: ${a2.pct}%"></div>
+              </div>
+            </div>
+          </div>
+          <div class="col-sm-4">
+            <div class="p-2 rounded bg-light dark-surface border">
+              <div class="d-flex justify-content-between small fw-bold mb-1">
+                <span>Niveau B1 (Maîtrise Orale)</span>
+                <span class="text-success">${b1.mastered}/${b1.total}</span>
+              </div>
+              <div class="progress" style="height: 8px;">
+                <div class="progress-bar bg-success" role="progressbar" style="width: ${b1.pct}%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="d-flex flex-wrap justify-content-between align-items-center mt-2 pt-2 border-top small">
+          <span><strong>Progression globale :</strong> ${totalMastered} / ${totalMods} modules validés (${overallPct}%)</span>
+          <span><strong>Écrit Cible A2 :</strong> ${a2WrittenDone} / 2 validés</span>
+          <span class="text-warning fw-bold"><i class="fa-solid fa-bookmark me-1"></i>À réviser : ${reviewCount} module(s)</span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  $("#course-tracker-banner").html(html);
+}
+
+function renderCourseRefresherPanel() {
+  const $panel = $("#course-refresher-panel");
+  if (!isRefresherOpen) {
+    $panel.hide();
+    return;
+  }
+  $panel.show();
+
+  let filtered = allCourseModules;
+  if (refresherFilter === "MASTERED") {
+    filtered = allCourseModules.filter(m => (courseProgress.mastered_modules || []).includes(m.id));
+  } else if (refresherFilter === "REVIEW") {
+    filtered = allCourseModules.filter(m => (courseProgress.needs_review_modules || []).includes(m.id));
+  }
+
+  let cardsHtml = "";
+  if (filtered.length === 0) {
+    cardsHtml = `<p class="text-muted small mb-0">Aucun module dans cette catégorie pour le moment.</p>`;
+  } else {
+    filtered.forEach(function (m) {
+      const isMastered = (courseProgress.mastered_modules || []).includes(m.id);
+      const isReview = (courseProgress.needs_review_modules || []).includes(m.id);
+      const bestScore = (courseProgress.module_scores || {})[m.id];
+      const ref = m.quick_refresher || {};
+
+      cardsHtml += `
+        <div class="refresher-card">
+          <div>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="badge bg-primary">${escapeHtml(m.code)} • ${escapeHtml(m.theme)}</span>
+              ${isMastered
+                ? `<span class="badge bg-success"><i class="fa-solid fa-check me-1"></i>Validé (${bestScore || 8}/10)</span>`
+                : isReview
+                ? `<span class="badge bg-warning text-dark">À réviser</span>`
+                : `<span class="badge bg-secondary">Non validé</span>`
+              }
+            </div>
+            <h4 class="h6 fw-bold mb-1">${escapeHtml(ref.rule_title || m.title)}</h4>
+            <div class="small bg-white dark-surface p-2 rounded border mb-2 font-monospace text-primary">
+              ${escapeHtml(ref.formula || "")}
+            </div>
+            <p class="small text-muted mb-2">
+              <strong>💡 Règle d'or :</strong> ${escapeHtml(ref.key_takeaway || "")}
+            </p>
+          </div>
+          <div class="d-flex justify-content-between align-items-center pt-2 border-top mt-2">
+            <button type="button" class="btn btn-sm btn-outline-primary jump-to-course-module-btn" data-mod-id="${escapeHtml(m.id)}">
+              Ouvrir &amp; Pratiquer l'Oral
+            </button>
+            <button type="button" class="btn btn-sm ${isReview ? 'btn-warning' : 'btn-outline-secondary'} toggle-review-flag-btn" data-mod-id="${escapeHtml(m.id)}" title="Marquer à réviser">
+              <i class="fa-solid fa-bookmark"></i>
+            </button>
+          </div>
+        </div>
+      `;
+    });
+  }
+
+  const html = `
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 pb-2 border-bottom">
+      <div>
+        <h3 class="h5 fw-bold mb-0"><i class="fa-solid fa-bolt text-warning me-2"></i>Aide-Mémoire &amp; Révision Rapide des Concepts (A1 → B1)</h3>
+        <p class="small text-muted mb-0">Toutes les formules clés et pièges à éviter en un coup d'œil.</p>
+      </div>
+      <div class="btn-group btn-group-sm">
+        <button type="button" class="btn ${refresherFilter === 'ALL' ? 'btn-primary' : 'btn-outline-primary'} refresher-filter-btn" data-filter="ALL">Tous (${allCourseModules.length})</button>
+        <button type="button" class="btn ${refresherFilter === 'MASTERED' ? 'btn-success' : 'btn-outline-success'} refresher-filter-btn" data-filter="MASTERED">Validés ✅ (${(courseProgress.mastered_modules || []).length})</button>
+        <button type="button" class="btn ${refresherFilter === 'REVIEW' ? 'btn-warning' : 'btn-outline-warning'} refresher-filter-btn" data-filter="REVIEW">À réviser ⚠️ (${(courseProgress.needs_review_modules || []).length})</button>
+      </div>
+    </div>
+    <div class="refresher-grid">
+      ${cardsHtml}
+    </div>
+  `;
+
+  $panel.html(html);
+}
+
+function renderCourseSidebar() {
+  const $list = $("#course-module-list");
+  $list.empty();
+
+  const modulesToShow = selectedCourseLevelFilter === "ALL"
+    ? allCourseModules
+    : allCourseModules.filter(m => m.level === selectedCourseLevelFilter);
+
+  modulesToShow.forEach(function (m) {
+    const isActive = m.id === selectedCourseModuleId ? "active" : "";
+    const isMastered = (courseProgress.mastered_modules || []).includes(m.id);
+    const isReview = (courseProgress.needs_review_modules || []).includes(m.id);
+    const bestScore = (courseProgress.module_scores || {})[m.id];
+
+    let statusBadge = `<span class="badge bg-secondary">${escapeHtml(m.level)}</span>`;
+    if (isMastered) {
+      statusBadge = `<span class="badge bg-success"><i class="fa-solid fa-check me-1"></i>${bestScore || 8}/10</span>`;
+    } else if (isReview || bestScore) {
+      statusBadge = `<span class="badge bg-warning text-dark">${bestScore ? bestScore + '/10' : 'À réviser'}</span>`;
+    }
+
+    const $btn = $(`
+      <button type="button" class="class-nav-item ${isActive}" data-mod-id="${escapeHtml(m.id)}">
+        <div>
+          <div class="class-num-badge">${escapeHtml(m.code)} • Thème : ${escapeHtml(m.theme)}</div>
+          <div class="fw-bold small mt-1">${escapeHtml(m.title)}</div>
+        </div>
+        <div class="ms-2 flex-shrink-0">${statusBadge}</div>
+      </button>
+    `);
+
+    $btn.on("click", function () {
+      selectedCourseModuleId = m.id;
+      renderCourseSidebar();
+      renderCourseModuleDetail(selectedCourseModuleId);
+    });
+
+    $list.append($btn);
+  });
+}
+
+function renderCourseModuleDetail(moduleId) {
+  const mod = allCourseModules.find(m => m.id === moduleId);
+  const $detail = $("#course-module-detail");
+  if (!mod) {
+    $detail.html('<p class="text-muted">Sélectionnez un module à gauche.</p>');
+    return;
+  }
+
+  const isMastered = (courseProgress.mastered_modules || []).includes(mod.id);
+  const isReview = (courseProgress.needs_review_modules || []).includes(mod.id);
+  const bestScore = (courseProgress.module_scores || {})[mod.id];
+  const attempts = (courseProgress.attempts_count || {})[mod.id] || 0;
+  const ref = mod.quick_refresher || {};
+
+  let conceptsHtml = "";
+  (mod.concepts || []).forEach(function (c) {
+    const rulesList = (c.rules || []).map(r => `<li>${escapeHtml(r)}</li>`).join("");
+    let examplesHtml = "";
+    (c.examples || []).forEach(function (ex) {
+      examplesHtml += `
+        <div class="example-box">
+          <div>
+            <div class="fw-bold text-primary">${escapeHtml(ex.fr)}</div>
+            <div class="small text-muted">${escapeHtml(ex.en)}</div>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline-primary tts-btn play-fr-btn" data-fr="${escapeHtml(ex.fr)}" title="Écouter">
+            <i class="fa-solid fa-volume-high"></i>
+          </button>
+        </div>
+      `;
+    });
+
+    conceptsHtml += `
+      <div class="concept-card">
+        <h4 class="h6 fw-bold mb-2">${escapeHtml(c.title)}</h4>
+        <p class="small text-muted mb-2">${escapeHtml(c.explanation)}</p>
+        <ul class="rule-list small">${rulesList}</ul>
+        ${examplesHtml}
+      </div>
+    `;
+  });
+
+  let vocabHtml = "";
+  (mod.vocabulary || []).forEach(function (v) {
+    const cleanFr = v.fr.split(" (")[0].split(" / ")[0].split(" (+")[0].trim();
+    vocabHtml += `
+      <div class="vocab-item">
+        <div>
+          <div class="fw-bold small">${escapeHtml(v.fr)}</div>
+          <div class="small text-muted">${escapeHtml(v.en)}</div>
+          ${v.note ? `<span class="badge bg-light text-dark border mt-1">${escapeHtml(v.note)}</span>` : ""}
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-primary tts-btn play-fr-btn" data-fr="${escapeHtml(cleanFr)}" title="Écouter">
+          <i class="fa-solid fa-volume-high"></i>
+        </button>
+      </div>
+    `;
+  });
+
+  let oralChallengesHtml = "";
+  (mod.oral_challenges || []).forEach(function (oc) {
+    const mandatoryBadges = (oc.mandatory_structures || [])
+      .map(s => `<span class="badge bg-danger me-1 mb-1">${escapeHtml(s)}</span>`)
+      .join("");
+
+    oralChallengesHtml += `
+      <div class="strict-exam-box ${isMastered ? 'mastered' : ''} mb-4">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+          <div>
+            <span class="badge ${isMastered ? 'bg-success' : 'bg-danger'} mb-1">
+              ${isMastered ? '<i class="fa-solid fa-check-double me-1"></i>Module Validé à l\'Oral' : '<i class="fa-solid fa-gavel me-1"></i>Examen Oral Strict — Note minimale : 8 / 10'}
+            </span>
+            <h4 class="h6 fw-bold mb-0">${escapeHtml(oc.title)}</h4>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline-primary tts-btn play-fr-btn" data-fr="${escapeHtml(oc.prompt_fr)}" title="Écouter la consigne">
+            <i class="fa-solid fa-volume-high"></i>
+          </button>
+        </div>
+
+        <p class="small mb-2">${escapeHtml(oc.prompt_fr)}</p>
+
+        <div class="mb-3">
+          <span class="small fw-bold text-danger d-block mb-1">
+            <i class="fa-solid fa-list-check me-1"></i>Structures obligatoires vérifiées par Gemini :
+          </span>
+          ${mandatoryBadges}
+        </div>
+
+        <div class="mb-2">
+          <textarea class="form-control form-control-sm" id="course-oral-input-${escapeHtml(oc.id)}" rows="3" placeholder="Cliquez sur 'Parler au micro' et répondez en faisant des phrases complètes..."></textarea>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2">
+          <button type="button" class="btn btn-sm btn-danger course-oral-record-btn" data-oc-id="${escapeHtml(oc.id)}">
+            <i class="fa-solid fa-microphone me-1"></i> Parler au micro
+          </button>
+          <button type="button" class="btn btn-sm btn-primary evaluate-course-oral-btn"
+            data-oc-id="${escapeHtml(oc.id)}"
+            data-mod-id="${escapeHtml(mod.id)}"
+            data-prompt="${escapeHtml(oc.prompt_fr)}"
+            data-mandatory='${escapeHtml(JSON.stringify(oc.mandatory_structures || []))}'>
+            <i class="fa-solid fa-gavel me-1"></i> Passer l'Évaluation Stricte (≥ 8/10 requis)
+          </button>
+        </div>
+
+        <div id="course-oral-feedback-${escapeHtml(oc.id)}"></div>
+      </div>
+    `;
+  });
+
+  let writingTaskHtml = "";
+  if (mod.writing_task_a2) {
+    const wt = mod.writing_task_a2;
+    const isWtDone = (courseProgress.completed_a2_writing || []).includes(mod.id);
+    writingTaskHtml = `
+      <div class="concept-card border-primary mt-3">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <span class="badge ${isWtDone ? 'bg-success' : 'bg-primary'}">
+            <i class="fa-solid fa-pen-nib me-1"></i>Objectif Écrit Cible A2 ${isWtDone ? '— Validé ✅' : '(60–80 mots)'}
+          </span>
+        </div>
+        <h4 class="h6 fw-bold">${escapeHtml(wt.title)}</h4>
+        <p class="small mb-2">${escapeHtml(wt.prompt_fr)}</p>
+        <textarea class="form-control form-control-sm mb-2" id="course-wt-input-${escapeHtml(mod.id)}" rows="4" placeholder="Écrivez votre courriel / message A2 ici (60 à 80 mots)..."></textarea>
+        <button type="button" class="btn btn-sm btn-outline-primary evaluate-course-wt-btn"
+          data-mod-id="${escapeHtml(mod.id)}"
+          data-prompt="${escapeHtml(wt.prompt_fr)}">
+          <i class="fa-solid fa-check me-1"></i> Vérifier mon Écrit A2
+        </button>
+        <div id="course-wt-feedback-${escapeHtml(mod.id)}"></div>
+      </div>
+    `;
+  }
+
+  const html = `
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3 pb-3 border-bottom">
+      <div>
+        <div class="d-flex align-items-center gap-2 mb-1">
+          <span class="badge bg-primary">${escapeHtml(mod.code)} (${escapeHtml(mod.level)})</span>
+          <span class="badge bg-info text-dark"><i class="fa-solid fa-tag me-1"></i>Thème : ${escapeHtml(mod.theme)}</span>
+          ${isMastered
+            ? `<span class="badge bg-success"><i class="fa-solid fa-trophy me-1"></i>Maîtrisé (${bestScore}/10)</span>`
+            : `<span class="badge bg-secondary">Meilleur score : ${bestScore ? bestScore + '/10' : 'Non testé'} (${attempts} essai${attempts > 1 ? 's' : ''})</span>`
+          }
+        </div>
+        <h2 class="h4 fw-bold mb-0">${escapeHtml(mod.title)}</h2>
+      </div>
+      <div class="d-flex gap-2">
+        <button type="button" class="btn btn-sm ${isReview ? 'btn-warning' : 'btn-outline-secondary'} toggle-review-flag-btn" data-mod-id="${escapeHtml(mod.id)}">
+          <i class="fa-solid fa-bookmark me-1"></i> ${isReview ? 'Marqué à réviser' : 'Ajouter aux révisions'}
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-primary go-chat-class-btn" data-class-id="${escapeHtml(mod.id)}">
+          <i class="fa-solid fa-comments me-1"></i> Pratiquer avec Renée
+        </button>
+      </div>
+    </div>
+
+    <!-- Gemini Presentation Box -->
+    <div class="gemini-presenter-box mb-4">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <div class="fw-bold text-primary small text-uppercase">
+          <i class="fa-solid fa-wand-magic-sparkles me-1"></i> Présentation du Cours par Gemini
+        </div>
+        <button type="button" class="btn btn-sm btn-primary play-fr-btn" data-fr="${escapeHtml(mod.gemini_presentation)}">
+          <i class="fa-solid fa-volume-high me-1"></i> Écouter la présentation
+        </button>
+      </div>
+      <p class="small mb-0">${escapeHtml(mod.gemini_presentation)}</p>
+    </div>
+
+    <!-- Quick Refresher Formula Box -->
+    <div class="refresher-formula-box mb-4">
+      <div class="fw-bold small text-uppercase mb-1">
+        <i class="fa-solid fa-bolt text-warning me-1"></i> Aide-Mémoire Express : ${escapeHtml(ref.rule_title || "")}
+      </div>
+      <div class="small font-monospace fw-bold text-primary mb-1">${escapeHtml(ref.formula || "")}</div>
+      <div class="small text-muted"><strong>À retenir absolument :</strong> ${escapeHtml(ref.key_takeaway || "")}</div>
+    </div>
+
+    <!-- Strict Oral Mastery Section First (Speaking Priority!) -->
+    <h3 class="h5 fw-bold mb-3"><i class="fa-solid fa-microphone-lines text-danger me-2"></i>1. Validation Orale Stricte du Concept (Priorité Speaking)</h3>
+    ${oralChallengesHtml}
+
+    <!-- Thematic Vocabulary with Audio -->
+    <h3 class="h5 fw-bold mb-3"><i class="fa-solid fa-book-bookmark text-success me-2"></i>2. Vocabulaire du Thème : ${escapeHtml(mod.theme)} (Cliquez sur 🔊)</h3>
+    <div class="vocab-grid mb-4">
+      ${vocabHtml}
+    </div>
+
+    <!-- Detailed Concept Breakdown -->
+    <h3 class="h5 fw-bold mb-3"><i class="fa-solid fa-graduation-cap text-primary me-2"></i>3. Explications Détaillées &amp; Exemples Audio</h3>
+    ${conceptsHtml}
+
+    ${writingTaskHtml}
+  `;
+
+  $detail.html(html);
+}
+
+function renderStrictCourseEvaluation(ev, containerSelector) {
+  if (!ev) return;
+  const passed = ev.passed;
+  const score = ev.score || 0;
+  const badgeClass = passed ? "bg-success" : "bg-danger";
+  const boxClass = passed ? "feedback-box" : "feedback-box needs-work";
+
+  const html = `
+    <div class="${boxClass} mt-3">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+        <span class="badge ${badgeClass} fs-6">${escapeHtml(ev.verdict || "")} — Score : ${score}/10</span>
+        ${ev.spoken_examiner_feedback_fr ? `
+          <button type="button" class="btn btn-sm btn-outline-primary play-fr-btn" data-fr="${escapeHtml(ev.spoken_examiner_feedback_fr)}">
+            <i class="fa-solid fa-volume-high me-1"></i> Réécouter l'examinateur
+          </button>
+        ` : ""}
+      </div>
+
+      <div class="small mb-2">
+        <strong>📋 Vérification des structures obligatoires :</strong>
+        <div class="text-muted mt-1">${escapeHtml(ev.structures_used_check || "")}</div>
+      </div>
+
+      <div class="small mb-2">
+        <strong>✅ Votre réponse corrigée :</strong>
+        <div class="d-flex justify-content-between align-items-center bg-light dark-surface p-2 rounded mt-1 border">
+          <span class="text-primary fw-bold">${escapeHtml(ev.corrected_french || "")}</span>
+          <button type="button" class="btn btn-sm btn-outline-primary tts-btn play-fr-btn" data-fr="${escapeHtml(ev.corrected_french || "")}">
+            <i class="fa-solid fa-volume-high"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="small mb-2">
+        <strong>🔍 Explication stricte de la règle :</strong>
+        <div class="text-muted mt-1">${escapeHtml(ev.strict_explanation_en || "")}</div>
+      </div>
+
+      ${ev.model_answer_fr ? `
+        <div class="small mb-2">
+          <strong>🏆 Réponse Modèle (Niveau Cible) :</strong>
+          <div class="d-flex justify-content-between align-items-center bg-light dark-surface p-2 rounded mt-1 border">
+            <span>${escapeHtml(ev.model_answer_fr)}</span>
+            <button type="button" class="btn btn-sm btn-outline-primary tts-btn play-fr-btn" data-fr="${escapeHtml(ev.model_answer_fr)}">
+              <i class="fa-solid fa-volume-high"></i>
+            </button>
+          </div>
+        </div>
+      ` : ""}
+
+      ${ev.follow_up_verification_question_fr ? `
+        <div class="alert alert-warning small mb-0 mt-2 d-flex justify-content-between align-items-center gap-2">
+          <div>
+            <strong>🎤 Question orale supplémentaire de vérification :</strong><br>
+            ${escapeHtml(ev.follow_up_verification_question_fr)}
+          </div>
+          <button type="button" class="btn btn-sm btn-outline-dark tts-btn play-fr-btn" data-fr="${escapeHtml(ev.follow_up_verification_question_fr)}">
+            <i class="fa-solid fa-volume-high"></i>
+          </button>
+        </div>
+      ` : ""}
+    </div>
+  `;
+
+  $(containerSelector).html(html);
+}
+
 $(document).ready(function () {
   var currentLanguageIndex = 0;
   var prefersDarkScheme = window.matchMedia("(prefers-color-scheme: dark)");
@@ -461,6 +992,174 @@ $(document).ready(function () {
 
   setDarkMode(darkMode);
   loadCurriculumData();
+  loadStructuredCourseData();
+
+  // Structured Course Event Handlers
+  $(document).on("click", "#toggle-refresher-btn", function () {
+    isRefresherOpen = !isRefresherOpen;
+    renderCourseTrackerBanner();
+    renderCourseRefresherPanel();
+  });
+
+  $(document).on("click", ".refresher-filter-btn", function () {
+    refresherFilter = $(this).attr("data-filter");
+    renderCourseRefresherPanel();
+  });
+
+  $(document).on("click", ".jump-to-course-module-btn", function () {
+    selectedCourseModuleId = $(this).attr("data-mod-id");
+    isRefresherOpen = false;
+    renderCourseTrackerBanner();
+    renderCourseRefresherPanel();
+    renderCourseSidebar();
+    renderCourseModuleDetail(selectedCourseModuleId);
+  });
+
+  $(document).on("click", "#flash-oral-quiz-btn", function () {
+    if (allCourseModules.length === 0) return;
+    const randomMod = allCourseModules[Math.floor(Math.random() * allCourseModules.length)];
+    selectedCourseModuleId = randomMod.id;
+    isRefresherOpen = false;
+    renderCourseTrackerBanner();
+    renderCourseRefresherPanel();
+    renderCourseSidebar();
+    renderCourseModuleDetail(selectedCourseModuleId);
+    const oc = (randomMod.oral_challenges || [])[0];
+    if (oc) {
+      speakFrenchText(oc.prompt_fr, null);
+    }
+  });
+
+  $(document).on("click", ".course-level-filter", function () {
+    $(".course-level-filter").removeClass("btn-primary").addClass("btn-outline-primary");
+    $(this).removeClass("btn-outline-primary").addClass("btn-primary");
+    selectedCourseLevelFilter = $(this).attr("data-level");
+    renderCourseSidebar();
+  });
+
+  $(document).on("click", ".toggle-review-flag-btn", function () {
+    const modId = $(this).attr("data-mod-id");
+    $.post("/api/toggle_course_review", { module_id: modId }, function (res) {
+      if (res.progress) {
+        courseProgress = res.progress;
+        renderCourseTrackerBanner();
+        renderCourseRefresherPanel();
+        renderCourseSidebar();
+        renderCourseModuleDetail(selectedCourseModuleId);
+      }
+    });
+  });
+
+  // Record Microphone for Structured Course Strict Oral Challenge
+  $(document).on("click", ".course-oral-record-btn", function () {
+    const $btn = $(this);
+    const ocId = $btn.attr("data-oc-id");
+    initAudio();
+
+    if (activeOralRecordingId === ocId) {
+      activeOralRecordingId = null;
+      $btn.prop("disabled", true).removeClass("btn-warning").addClass("btn-danger").html('<i class="fa-solid fa-spinner fa-spin me-1"></i> Transcription...');
+      stopRecording();
+      activeOralBlobPromise.then(blob => {
+        uploadAudio(blob).then(filename => {
+          $.post("/transcribe_recording", { filename: filename }, function (res) {
+            $btn.prop("disabled", false).html('<i class="fa-solid fa-microphone me-1"></i> Parler au micro');
+            if (res.error) showNotification(res.error);
+            if (res.recorded_text) {
+              const $input = $(`#course-oral-input-${ocId}`);
+              const existing = $input.val().trim();
+              $input.val(existing ? existing + " " + res.recorded_text : res.recorded_text);
+            }
+          });
+        });
+      });
+    } else {
+      activeOralRecordingId = ocId;
+      $btn.removeClass("btn-danger").addClass("btn-warning").html('<i class="fa-solid fa-stop me-1"></i> Arrêter l\'enregistrement');
+      activeOralBlobPromise = startRecording();
+    }
+  });
+
+  // Evaluate Strict Oral Challenge in Structured Course
+  $(document).on("click", ".evaluate-course-oral-btn", function () {
+    const $btn = $(this);
+    const ocId = $btn.attr("data-oc-id");
+    const modId = $btn.attr("data-mod-id");
+    const promptText = $btn.attr("data-prompt");
+    const mandatoryRaw = $btn.attr("data-mandatory") || "[]";
+    const userVal = ($(`#course-oral-input-${ocId}`).val() || "").trim();
+
+    if (!userVal) {
+      showNotification("Parlez au micro ou écrivez votre réponse complète en français d'abord !");
+      return;
+    }
+
+    initAudio();
+    const origHtml = $btn.html();
+    $btn.prop("disabled", true).html('<i class="fa-solid fa-spinner fa-spin me-1"></i> Évaluation stricte par Gemini...');
+
+    $.post("/api/evaluate_course_challenge", {
+      module_id: modId,
+      prompt_text: promptText,
+      user_answer: userVal,
+      mandatory_structures: mandatoryRaw,
+      is_writing_a2: 0
+    }, function (res) {
+      $btn.prop("disabled", false).html(origHtml);
+      if (res.error) {
+        showNotification(res.error);
+        return;
+      }
+      if (res.progress) {
+        courseProgress = res.progress;
+        renderCourseTrackerBanner();
+        renderCourseSidebar();
+      }
+      renderStrictCourseEvaluation(res.evaluation, `#course-oral-feedback-${ocId}`);
+      if (res.audio_url) {
+        playSingleAudioFile(res.audio_url);
+      }
+    }).fail(function () {
+      $btn.prop("disabled", false).html(origHtml);
+    });
+  });
+
+  // Evaluate A2 Writing Task in Structured Course
+  $(document).on("click", ".evaluate-course-wt-btn", function () {
+    const $btn = $(this);
+    const modId = $btn.attr("data-mod-id");
+    const promptText = $btn.attr("data-prompt");
+    const userVal = ($(`#course-wt-input-${modId}`).val() || "").trim();
+
+    if (!userVal) {
+      showNotification("Écrivez d'abord votre courriel / message A2.");
+      return;
+    }
+
+    const origHtml = $btn.html();
+    $btn.prop("disabled", true).html('<i class="fa-solid fa-spinner fa-spin me-1"></i> Vérification A2...');
+
+    $.post("/api/evaluate_course_challenge", {
+      module_id: modId,
+      prompt_text: promptText,
+      user_answer: userVal,
+      mandatory_structures: "[]",
+      is_writing_a2: 1
+    }, function (res) {
+      $btn.prop("disabled", false).html(origHtml);
+      if (res.error) {
+        showNotification(res.error);
+        return;
+      }
+      if (res.progress) {
+        courseProgress = res.progress;
+        renderCourseTrackerBanner();
+      }
+      renderStrictCourseEvaluation(res.evaluation, `#course-wt-feedback-${modId}`);
+    }).fail(function () {
+      $btn.prop("disabled", false).html(origHtml);
+    });
+  });
 
   // Tab navigation
   $(document).on("click", ".tab-btn", function () {

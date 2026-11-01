@@ -38,8 +38,11 @@
         </div>
 
         <nav class="app-tabs" aria-label="Main sections">
-          <button type="button" class="tab-btn active" data-tab="tab-classes">
-            <i class="fa-solid fa-book-open me-1" aria-hidden="true"></i> Mes Cours (1–11)
+          <button type="button" class="tab-btn active" data-tab="tab-course">
+            <i class="fa-solid fa-graduation-cap me-1" aria-hidden="true"></i> Cours Gemini (A1→B1)
+          </button>
+          <button type="button" class="tab-btn" data-tab="tab-classes">
+            <i class="fa-solid fa-book-open me-1" aria-hidden="true"></i> Mes Cahiers (1–11)
           </button>
           <button type="button" class="tab-btn" data-tab="tab-exercises">
             <i class="fa-solid fa-microphone-lines me-1" aria-hidden="true"></i> Exercices &amp; Oral
@@ -67,9 +70,49 @@
       <h1 class="visually-hidden">Companion French Tutor &amp; DELF B1 Study Platform</h1>
 
       <!-- ========================================================= -->
+      <!-- TAB 0: COURS STRUCTURÉ GEMINI (A1 -> A2 -> B1 + TRACKER)   -->
+      <!-- ========================================================= -->
+      <section id="tab-course" class="tab-section active">
+        <!-- Top Course Tracker & Quick Refresher Bar -->
+        <div id="course-tracker-banner" class="panel-card mb-4"></div>
+
+        <!-- Quick Refresher Drawer / Cheat-Sheet View (Toggled on demand) -->
+        <div id="course-refresher-panel" class="panel-card mb-4" style="display: none;"></div>
+
+        <!-- Main Course Layout: Left Level/Module Tree + Right Active Module Lesson & Strict Oral Exam -->
+        <div class="row g-4" id="course-main-grid">
+          <div class="col-lg-4 col-md-5">
+            <div class="panel-card">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <h2 class="h5 mb-0 fw-bold">
+                  <i class="fa-solid fa-layer-group text-primary me-2" aria-hidden="true"></i>Parcours A1 • A2 • B1
+                </h2>
+                <span class="badge bg-danger">Exigence : ≥ 8/10</span>
+              </div>
+              <p class="small text-muted mb-3">
+                17 modules thématiques présentés par Gemini. Priorité à l'<strong>Oral B1</strong> + <strong>Écrit A2</strong>. Chaque module exige au moins <strong>8/10 à l'oral</strong> pour être validé.
+              </p>
+              <!-- Level filter pills -->
+              <div class="d-flex gap-1 mb-3">
+                <button type="button" class="btn btn-sm btn-primary flex-grow-1 course-level-filter" data-level="ALL">Tous (17)</button>
+                <button type="button" class="btn btn-sm btn-outline-primary flex-grow-1 course-level-filter" data-level="A1">A1 (5)</button>
+                <button type="button" class="btn btn-sm btn-outline-primary flex-grow-1 course-level-filter" data-level="A2">A2 (6)</button>
+                <button type="button" class="btn btn-sm btn-outline-primary flex-grow-1 course-level-filter" data-level="B1">B1 (6)</button>
+              </div>
+              <div id="course-module-list" class="class-list-nav"></div>
+            </div>
+          </div>
+
+          <div class="col-lg-8 col-md-7">
+            <div id="course-module-detail" class="panel-card"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================= -->
       <!-- TAB 1: MES COURS (CLASSES 1-11 + UPLOAD NEW CLASS PDF)     -->
       <!-- ========================================================= -->
-      <section id="tab-classes" class="tab-section active">
+      <section id="tab-classes" class="tab-section" style="display: none;">
         <div class="row g-4">
           <!-- Left Sidebar: Class List -->
           <div class="col-lg-4 col-md-5">

@@ -9,7 +9,7 @@ from threading import Thread
 from unidecode import unidecode
 from flask import Flask, render_template, request, jsonify, url_for, redirect
 from queue import Empty as EmptyQueue
-from python import speech, language, utils, curriculum
+from python import speech, language, utils, curriculum, structured_course
 from python.memory import Memory
 from python.config import Config
 from python.chatbot import Chatbot
@@ -585,11 +585,87 @@ def api_set_chat_focus():
                     f"Examiner prompt: {sim['prompt_fr']}. Coaching tips: {sim['tips']}"
                 )
                 break
+    elif focus_id.startswith(('a1-', 'a2-', 'b1-')):
+        mod = structured_course.get_course_module_by_id(focus_id)
+        if mod:
+            vocab_list = ', '.join(v['fr'] for v in mod.get('vocabulary', []))
+            focus_context = (
+                f"Structured Course Module {mod['code']} ({mod['level']}) — {mod['title']} [Theme: {mod['theme']}]. "
+                f"Be a strict oral coach verifying the student's mastery of: {mod['quick_refresher']['rule_title']}. "
+                f"Key vocabulary to test: {vocab_list}."
+            )
 
     memory = Memory()
     chatbot = Chatbot(config=config, memory=memory)
     chatbot.set_focus_context(focus_context)
     return jsonify({'status': 'success', 'focus_context': focus_context})
+
+
+@app.route('/api/structured_course', methods=['GET'])
+def api_get_structured_course():
+    """
+    Return the full A1 -> A2 -> B1 structured course presented by Gemini and user progress tracker.
+    """
+    return jsonify({
+        'levels': structured_course.STRUCTURED_COURSE_LEVELS,
+        'progress': structured_course.load_course_progress(),
+    })
+
+
+@app.route('/api/evaluate_course_challenge', methods=['POST'])
+def api_evaluate_course_challenge():
+    """
+    Strictly evaluate a spoken or A2 written challenge in the Structured Course (requires >= 8/10 for oral mastery).
+    """
+    import time
+    module_id = request.form.get('module_id', 'a1-m1')
+    prompt_text = request.form.get('prompt_text', '')
+    user_answer = (request.form.get('user_answer') or '').strip()
+    mandatory_raw = request.form.get('mandatory_structures', '[]')
+    is_writing_a2 = bool(int(request.form.get('is_writing_a2', '0')))
+
+    if not user_answer:
+        return jsonify({'error': 'Parlez au micro ou écrivez votre réponse complète en français d\'abord.'}), 400
+
+    try:
+        mandatory_list = json.loads(mandatory_raw) if mandatory_raw else []
+    except Exception:
+        mandatory_list = []
+
+    try:
+        evaluation = structured_course.evaluate_strict_course_challenge(
+            client=config.gemini.client,
+            module_id=module_id,
+            prompt_text=prompt_text,
+            user_answer=user_answer,
+            mandatory_structures=mandatory_list,
+            is_writing_a2=is_writing_a2,
+        )
+        audio_url = None
+        spoken_fr = evaluation.get('spoken_examiner_feedback_fr', '')
+        if spoken_fr:
+            try:
+                stamp = int(time.time() * 1000) % 1000000
+                filename = utils.bot_text_to_speech(text=spoken_fr, message_index=997, counter=stamp)
+                audio_url = url_for('static', filename=f'{TEMP_DIR_NAME}/{os.path.basename(filename)}')
+            except Exception:
+                audio_url = None
+
+        return jsonify({
+            'evaluation': evaluation,
+            'audio_url': audio_url,
+            'progress': structured_course.load_course_progress(),
+            'error': None,
+        })
+    except Exception as e:
+        return jsonify({'evaluation': None, 'error': utils.get_error_message_from_exception(e)})
+
+
+@app.route('/api/toggle_course_review', methods=['POST'])
+def api_toggle_course_review():
+    module_id = request.form.get('module_id', '')
+    progress = structured_course.toggle_module_review_flag(module_id) if module_id else structured_course.load_course_progress()
+    return jsonify({'progress': progress})
 
 
 def exit_graceful(signum, frame) -> None:
