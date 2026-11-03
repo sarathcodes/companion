@@ -504,6 +504,69 @@ img.profile-pic {
   backdrop-filter: blur(3px);
 }
 
+/* ========================================================= */
+/* RIGHT-CLICK SMART DICTIONARY POPOVER & VERB TABLES        */
+/* ========================================================= */
+.smart-dict-popover {
+  position: fixed;
+  z-index: 9999;
+  width: 440px;
+  max-width: 94vw;
+  max-height: 82vh;
+  overflow-y: auto;
+  background: var(--surface);
+  color: var(--text-main);
+  border: 3px solid var(--duo-blue);
+  border-bottom-width: 6px;
+  border-radius: 22px;
+  padding: 1.15rem;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.28);
+}
+
+.tense-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 0.85rem;
+}
+
+.tense-box {
+  background: var(--surface-soft);
+  border: 2px solid var(--border-col);
+  border-radius: 16px;
+  padding: 0.85rem 1rem;
+}
+
+.tense-title {
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 700;
+  color: var(--duo-blue);
+  border-bottom: 2px solid var(--border-col);
+  padding-bottom: 0.35rem;
+  margin-bottom: 0.5rem;
+}
+
+.word-flashcard.verb-card-active {
+  border-color: var(--duo-green);
+  background: rgba(88, 204, 2, 0.08);
+}
+
+.star-word-btn {
+  background: #fffbeb;
+  border: 2px solid var(--duo-yellow);
+  border-bottom-width: 4px;
+  color: #b45309;
+  border-radius: 14px;
+  padding: 0.35rem 0.8rem;
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.star-word-btn.starred {
+  background: var(--duo-yellow);
+  color: #1e293b;
+}
+
 @media screen and (max-width: 768px) {
   .non-mobile {
     display: none;

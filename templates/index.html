@@ -33,13 +33,16 @@
           <img src="/static/logo.png" alt="Companion" class="fun-logo" id="logo-image">
         </div>
 
-        <!-- 3 Simple, Big Navigation Pills -->
+        <!-- 4 Simple, Big Navigation Pills -->
         <nav class="fun-nav" aria-label="Menu principal">
           <button type="button" class="fun-tab-btn active" data-tab="tab-course">
             <span class="tab-emoji" aria-hidden="true">🗺️</span> Aventure A1 → B1
           </button>
           <button type="button" class="fun-tab-btn" data-tab="tab-classes">
             <span class="tab-emoji" aria-hidden="true">🎒</span> Mes Cours (1–11)
+          </button>
+          <button type="button" class="fun-tab-btn" data-tab="tab-verbs">
+            <span class="tab-emoji" aria-hidden="true">⚡</span> Verbes &amp; Mots ⭐
           </button>
           <button type="button" class="fun-tab-btn" data-tab="tab-practice">
             <span class="tab-emoji" aria-hidden="true">💬</span> Parler avec Renée
@@ -113,6 +116,59 @@
 
         <!-- Single Class Interactive Player (3 simple steps: Règle / Mots / Quiz & Micro) -->
         <div id="single-class-view" style="display: none;"></div>
+      </section>
+
+      <!-- ========================================================= -->
+      <!-- SECTION 2B: VERBES DU QUOTIDIEN & MOTS FAVORIS ⭐          -->
+      <!-- ========================================================= -->
+      <section id="tab-verbs" class="tab-section" style="display: none;">
+        <!-- Sub-navigation: Common Verbs vs Starred Words -->
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+          <div class="d-flex gap-2 flex-wrap">
+            <button type="button" class="fun-btn fun-btn-blue verbs-subtab-btn active" data-subtab="verbs-panel">
+              ⚡ Les 20 Verbes du Quotidien (Conjugaison)
+            </button>
+            <button type="button" class="fun-btn fun-btn-yellow verbs-subtab-btn" data-subtab="starred-panel">
+              ⭐ Mes Mots Favoris (<span id="starred-words-count">0</span>)
+            </button>
+          </div>
+
+          <!-- Instant AI Verb Conjugator Search Box -->
+          <div class="d-flex gap-2 flex-grow-1" style="max-width: 420px;">
+            <input type="text" id="custom-verb-input" class="form-control rounded-4" placeholder="Conjuguer un autre verbe (ex: courir, finir)...">
+            <button type="button" id="conjugate-custom-verb-btn" class="fun-btn fun-btn-purple text-nowrap">
+              🔍 Conjuguer
+            </button>
+          </div>
+        </div>
+
+        <!-- SUB-PANEL 1: COMMON DAILY VERBS CONJUGATION -->
+        <div id="verbs-panel">
+          <div class="level-pills-bar mb-4">
+            <button type="button" class="verb-cat-pill level-pill active" data-cat="ALL">🌟 Tous les Verbes (20)</button>
+            <button type="button" class="verb-cat-pill level-pill" data-cat="indispensables">🔥 Les Indispensables (Être, Avoir, Aller, Faire...)</button>
+            <button type="button" class="verb-cat-pill level-pill" data-cat="quotidien">🚶 Quotidien &amp; Déplacements</button>
+            <button type="button" class="verb-cat-pill level-pill" data-cat="pronominaux">🌅 Verbes Pronominaux (Se...)</button>
+          </div>
+
+          <!-- Selected Verb Full Conjugation Table -->
+          <div id="active-verb-detail" class="mb-4"></div>
+
+          <!-- Grid of Common Verbs -->
+          <h3 class="h5 fw-bold mb-3">👇 Clique sur un verbe pour voir tous ses temps et écouter des exemples :</h3>
+          <div id="common-verbs-grid" class="flashcard-grid"></div>
+        </div>
+
+        <!-- SUB-PANEL 2: STARRED WORDS FROM RIGHT-CLICK DICTIONARY -->
+        <div id="starred-panel" style="display: none;">
+          <div class="fun-card mb-4" style="background: #fffbeb; border-color: #f59e0b;">
+            <h2 class="h4 fw-bold mb-1 text-dark">⭐ Tes Mots Favoris (Sauvegardés au Clic Droit)</h2>
+            <p class="mb-0 text-dark opacity-75">
+               Astuce magique : Fais un <strong>clic droit</strong> sur n'importe quel mot français dans l'application pour voir sa traduction, toutes ses formes/conjugaisons et l'ajouter ici avec l'étoile ⭐ !
+            </p>
+          </div>
+          <div id="starred-words-container" class="quest-grid"></div>
+        </div>
       </section>
 
       <!-- ========================================================= -->
@@ -220,5 +276,12 @@
         </div>
       </form>
     </dialog>
+
+    <!-- ========================================================= -->
+    <!-- FLOATING RIGHT-CLICK SMART DICTIONARY POPOVER             -->
+    <!-- ========================================================= -->
+    <div id="smart-dict-popover" class="smart-dict-popover" style="display: none;" role="dialog" aria-label="Dictionnaire Magique">
+      <div id="smart-dict-content"></div>
+    </div>
   </body>
 </html>

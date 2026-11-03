@@ -25,6 +25,13 @@ let activeClassStep = 1; // 1 = Rule, 2 = Words, 3 = Quiz & Homework Mic
 let activeOralRecordingId = null;
 let activeOralBlobPromise = null;
 
+// Common Daily Verbs & Right-Click Dictionary / Starred Words State
+let commonDailyVerbs = [];
+let starredWords = [];
+let selectedVerbCategory = "ALL";
+let activeVerbObj = null;
+let lastDictLookupEntry = null;
+
 const QUEST_EMOJIS = {
   "a1-m1": "👨‍👩‍👦",
   "a1-m2": "⏰",
@@ -781,6 +788,381 @@ function populateChatFocusSelector() {
 }
 
 // =========================================================
+// 3. COMMON DAILY VERBS CONJUGATION & STARRED WORDS
+// =========================================================
+
+function loadVerbsAndStarredWords() {
+  $.get("/api/verbs_and_starred", function (data) {
+    commonDailyVerbs = data.verbs || [];
+    starredWords = data.starred_words || [];
+    $("#starred-words-count").text(starredWords.length);
+
+    if (!activeVerbObj && commonDailyVerbs.length > 0) {
+      activeVerbObj = commonDailyVerbs[0];
+    }
+    renderActiveVerbDetail(activeVerbObj);
+    renderCommonVerbsGrid();
+    renderStarredWordsPanel();
+  });
+}
+
+function renderCommonVerbsGrid() {
+  const $grid = $("#common-verbs-grid");
+  $grid.empty();
+
+  const filtered = selectedVerbCategory === "ALL"
+    ? commonDailyVerbs
+    : commonDailyVerbs.filter(v => v.category === selectedVerbCategory);
+
+  filtered.forEach(function (v) {
+    const isActive = activeVerbObj && activeVerbObj.verb === v.verb ? "verb-card-active" : "";
+    const auxBadge = v.auxiliary === "être" ? "bg-danger" : "bg-primary";
+    const $card = $(`
+      <div class="word-flashcard ${isActive}" data-verb="${escapeHtml(v.verb)}">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <span class="fs-3">${v.emoji || "⚡"}</span>
+          <span class="badge ${auxBadge}">Aux: ${escapeHtml(v.auxiliary)} (${escapeHtml(v.past_participle)})</span>
+        </div>
+        <div class="h4 fw-bold text-primary mb-1">${escapeHtml(v.verb)}</div>
+        <div class="small fw-bold text-muted">${escapeHtml(v.en)}</div>
+      </div>
+    `);
+    $card.on("click", function () {
+      activeVerbObj = v;
+      renderActiveVerbDetail(v);
+      renderCommonVerbsGrid();
+      document.getElementById("active-verb-detail").scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+    $grid.append($card);
+  });
+}
+
+function renderActiveVerbDetail(v) {
+  const $detail = $("#active-verb-detail");
+  if (!v) {
+    $detail.empty();
+    return;
+  }
+
+  let tensesHtml = "";
+  const tensesObj = v.tenses || {};
+  Object.keys(tensesObj).forEach(function (tenseName) {
+    const formsList = (tensesObj[tenseName] || [])
+      .map(line => `<div class="py-1 border-bottom small fw-bold">${escapeHtml(line)}</div>`)
+      .join("");
+    tensesHtml += `
+      <div class="tense-box">
+        <div class="tense-title">${escapeHtml(tenseName)}</div>
+        ${formsList}
+      </div>
+    `;
+  });
+
+  let examplesHtml = "";
+  (v.examples || []).forEach(function (ex) {
+    examplesHtml += `
+      <div class="example-bubble">
+        <div>
+          <div class="fw-bold text-primary">${escapeHtml(ex.fr)}</div>
+          <div class="small text-muted">${escapeHtml(ex.en)}</div>
+        </div>
+        <button type="button" class="sound-circle-btn play-fr-btn" data-fr="${escapeHtml(ex.fr)}" title="Écouter">
+          <i class="fa-solid fa-volume-high"></i>
+        </button>
+      </div>
+    `;
+  });
+
+  const auxBadge = v.auxiliary === "être" ? "bg-danger" : "bg-primary";
+  const html = `
+    <div class="fun-card border-primary">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 pb-3 border-bottom">
+        <div class="d-flex align-items-center gap-3">
+          <div class="quest-emoji-circle">${v.emoji || "⚡"}</div>
+          <div>
+            <div class="d-flex align-items-center gap-2">
+              <h3 class="h3 fw-bold text-primary mb-0">${escapeHtml(v.verb)}</h3>
+              <button type="button" class="sound-circle-btn play-fr-btn" data-fr="${escapeHtml(v.verb)}" title="Écouter le verbe">
+                <i class="fa-solid fa-volume-high"></i>
+              </button>
+              <span class="badge ${auxBadge} fs-6">Auxiliaire : ${escapeHtml(v.auxiliary)} • Participe passé : ${escapeHtml(v.past_participle)}</span>
+            </div>
+            <div class="fw-bold text-muted fs-5">${escapeHtml(v.en)}</div>
+          </div>
+        </div>
+      </div>
+
+      ${v.tip ? `
+        <div class="magic-rule-box mb-3 py-2 px-3">
+          <strong>💡 Astuce :</strong> ${escapeHtml(v.tip)}
+        </div>
+      ` : ""}
+
+      <div class="tense-grid mb-3">
+        ${tensesHtml}
+      </div>
+
+      <h4 class="h6 fw-bold mt-3 mb-2">🗣️ Phrases du quotidien :</h4>
+      ${examplesHtml}
+    </div>
+  `;
+
+  $detail.html(html);
+}
+
+function renderStarredWordsPanel() {
+  const $container = $("#starred-words-container");
+  $("#starred-words-count").text(starredWords.length);
+
+  if (starredWords.length === 0) {
+    $container.html(`
+      <div class="fun-card text-center py-5" style="grid-column: 1 / -1;">
+        <div class="display-4 mb-2">⭐</div>
+        <h3 class="h4 fw-bold">Aucun mot favori pour l'instant !</h3>
+        <p class="text-muted mb-0">
+          Fais un <strong>clic droit</strong> sur n'importe quel mot français dans l'application, puis clique sur <strong>⭐ Favori</strong> pour le sauvegarder ici.
+        </p>
+      </div>
+    `);
+    return;
+  }
+
+  $container.empty();
+  starredWords.forEach(function (entry) {
+    const forms = entry.forms || {};
+    let formsPreviewHtml = "";
+    if (entry.is_verb && forms.tenses && forms.tenses["Présent"]) {
+      formsPreviewHtml = `
+        <div class="small bg-light text-dark p-2 rounded-3 border mb-2">
+          <div><strong>Infinitif :</strong> ${escapeHtml(forms.infinitive || entry.lemma)} (Aux: ${escapeHtml(forms.auxiliary || "avoir")}, PP: ${escapeHtml(forms.past_participle || "")})</div>
+          <div class="mt-1"><strong>Présent :</strong> ${(forms.tenses["Présent"] || []).map(escapeHtml).join(" • ")}</div>
+          ${forms.tenses["Passé Composé"] ? `<div class="mt-1"><strong>Passé Composé :</strong> ${(forms.tenses["Passé Composé"] || []).slice(0, 3).map(escapeHtml).join(" • ")}...</div>` : ""}
+          ${forms.tenses["Imparfait"] ? `<div class="mt-1"><strong>Imparfait :</strong> ${(forms.tenses["Imparfait"] || []).slice(0, 3).map(escapeHtml).join(" • ")}...</div>` : ""}
+        </div>
+      `;
+    } else {
+      formsPreviewHtml = `
+        <div class="small bg-light text-dark p-2 rounded-3 border mb-2">
+          ${forms.masculine_singular ? `<div><strong>Masc. :</strong> ${escapeHtml(forms.masculine_singular)}</div>` : ""}
+          ${forms.feminine_singular ? `<div><strong>Fém. :</strong> ${escapeHtml(forms.feminine_singular)}</div>` : ""}
+          ${forms.plural ? `<div><strong>Pluriel :</strong> ${escapeHtml(forms.plural)}</div>` : ""}
+          ${(forms.related_family && forms.related_family.length) ? `<div><strong>Famille :</strong> ${forms.related_family.map(escapeHtml).join(", ")}</div>` : ""}
+        </div>
+      `;
+    }
+
+    let exHtml = "";
+    (entry.examples || []).forEach(function (ex) {
+      exHtml += `
+        <div class="example-bubble py-2 px-3">
+          <div class="small">
+            <div class="fw-bold text-primary">${escapeHtml(ex.fr)}</div>
+            <div class="text-muted">${escapeHtml(ex.en)}</div>
+          </div>
+          <button type="button" class="sound-circle-btn play-fr-btn" style="width: 34px; height: 34px;" data-fr="${escapeHtml(ex.fr)}">
+            <i class="fa-solid fa-volume-high"></i>
+          </button>
+        </div>
+      `;
+    });
+
+    const $card = $(`
+      <div class="fun-card d-flex flex-column justify-content-between">
+        <div>
+          <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+            <div>
+              <span class="badge bg-primary mb-1">${escapeHtml(entry.part_of_speech || "Mot")}</span>
+              <h3 class="h4 fw-bold text-primary mb-0">
+                ${escapeHtml(entry.lemma || entry.word)}
+                ${entry.word && entry.lemma && entry.word.toLowerCase() !== entry.lemma.toLowerCase()
+                  ? `<span class="small text-muted fw-normal">(${escapeHtml(entry.word)})</span>`
+                  : ""}
+              </h3>
+            </div>
+            <div class="d-flex gap-1">
+              <button type="button" class="sound-circle-btn play-fr-btn" data-fr="${escapeHtml(entry.lemma || entry.word)}" title="Écouter">
+                <i class="fa-solid fa-volume-high"></i>
+              </button>
+              <button type="button" class="star-word-btn starred remove-star-btn" data-entry='${escapeHtml(JSON.stringify(entry))}' title="Retirer des favoris">
+                ⭐
+              </button>
+            </div>
+          </div>
+
+          <div class="fw-bold fs-5 mb-2">🇬🇧 ${escapeHtml(entry.english_meaning || "")}</div>
+          ${entry.grammar_tip ? `<p class="small text-muted mb-2">💡 ${escapeHtml(entry.grammar_tip)}</p>` : ""}
+          ${formsPreviewHtml}
+          ${exHtml}
+        </div>
+      </div>
+    `);
+    $container.append($card);
+  });
+}
+
+// =========================================================
+// 4. RIGHT-CLICK SMART DICTIONARY POPUP (ANYWHERE ON PAGE)
+// =========================================================
+
+function extractWordAtPoint(clientX, clientY) {
+  // 1. If user highlighted text, use selection
+  const sel = window.getSelection();
+  if (sel && sel.toString().trim().length > 0 && sel.toString().trim().length < 45) {
+    const selectedText = sel.toString().trim();
+    const anchorText = sel.anchorNode && sel.anchorNode.textContent ? sel.anchorNode.textContent.trim() : "";
+    return { word: selectedText, context: anchorText.slice(0, 220) };
+  }
+
+  // 2. Otherwise detect exact word under the mouse cursor
+  let range = null;
+  let textNode = null;
+  let offset = 0;
+
+  if (document.caretRangeFromPoint) {
+    range = document.caretRangeFromPoint(clientX, clientY);
+    if (range) {
+      textNode = range.startContainer;
+      offset = range.startOffset;
+    }
+  } else if (document.caretPositionFromPoint) {
+    const pos = document.caretPositionFromPoint(clientX, clientY);
+    if (pos) {
+      textNode = pos.offsetNode;
+      offset = pos.offset;
+    }
+  }
+
+  if (!textNode || textNode.nodeType !== Node.TEXT_NODE) {
+    return null;
+  }
+
+  const text = textNode.textContent || "";
+  if (!text.trim()) return null;
+
+  const isWordChar = ch => /[a-zA-ZÀ-ÿœŒæÆ'-]/.test(ch);
+  let start = offset;
+  let end = offset;
+
+  while (start > 0 && isWordChar(text[start - 1])) start--;
+  while (end < text.length && isWordChar(text[end])) end++;
+
+  let word = text.slice(start, end).replace(/^['-]+|['-]+$/g, "");
+  // Strip leading contraction like l', d', j', qu', n', s', m', t', c'
+  word = word.replace(/^(l'|d'|j'|qu'|n'|s'|m'|t'|c')/i, "");
+
+  if (!word || word.length < 2) return null;
+  return { word: word, context: text.trim().slice(0, 220) };
+}
+
+function positionPopoverNearCursor(clientX, clientY) {
+  const $pop = $("#smart-dict-popover");
+  $pop.show();
+  const popWidth = $pop.outerWidth() || 420;
+  const popHeight = Math.min($pop.outerHeight() || 380, window.innerHeight * 0.8);
+
+  let left = clientX + 12;
+  let top = clientY + 12;
+
+  if (left + popWidth > window.innerWidth - 16) {
+    left = Math.max(12, window.innerWidth - popWidth - 16);
+  }
+  if (top + popHeight > window.innerHeight - 16) {
+    top = Math.max(12, window.innerHeight - popHeight - 16);
+  }
+
+  $pop.css({ left: left + "px", top: top + "px" });
+}
+
+function renderSmartDictionaryPopoverContent(entry, isStarred) {
+  lastDictLookupEntry = entry;
+  const forms = entry.forms || {};
+  let formsHtml = "";
+
+  if (entry.is_verb && forms.tenses) {
+    let tensesBlocks = "";
+    ["Présent", "Passé Composé", "Imparfait", "Futur Simple", "Conditionnel"].forEach(function (tName) {
+      if (forms.tenses[tName]) {
+        tensesBlocks += `
+          <div class="p-2 rounded-3 bg-light text-dark border small">
+            <div class="fw-bold text-primary border-bottom pb-1 mb-1">${escapeHtml(tName)}</div>
+            ${forms.tenses[tName].map(l => `<div>${escapeHtml(l)}</div>`).join("")}
+          </div>
+        `;
+      }
+    });
+    formsHtml = `
+      <div class="mb-3">
+        <div class="small fw-bold text-uppercase text-muted mb-1">
+          🔄 Conjugaison (${escapeHtml(forms.infinitive || entry.lemma)} • Aux: ${escapeHtml(forms.auxiliary || "avoir")} • PP: ${escapeHtml(forms.past_participle || "")}) :
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 0.5rem;">
+          ${tensesBlocks}
+        </div>
+      </div>
+    `;
+  } else {
+    formsHtml = `
+      <div class="p-2 rounded-3 bg-light text-dark border small mb-3">
+        <div class="fw-bold text-primary mb-1">🔄 Toutes les formes du mot :</div>
+        ${forms.masculine_singular ? `<div><strong>Masculin :</strong> ${escapeHtml(forms.masculine_singular)}</div>` : ""}
+        ${forms.feminine_singular ? `<div><strong>Féminin :</strong> ${escapeHtml(forms.feminine_singular)}</div>` : ""}
+        ${forms.plural ? `<div><strong>Pluriel :</strong> ${escapeHtml(forms.plural)}</div>` : ""}
+        ${(forms.related_family && forms.related_family.length) ? `<div><strong>Mots de la même famille :</strong> ${forms.related_family.map(escapeHtml).join(", ")}</div>` : ""}
+      </div>
+    `;
+  }
+
+  let examplesHtml = "";
+  (entry.examples || []).forEach(function (ex) {
+    examplesHtml += `
+      <div class="example-bubble py-2 px-3">
+        <div class="small">
+          <div class="fw-bold text-primary">${escapeHtml(ex.fr)}</div>
+          <div class="text-muted">${escapeHtml(ex.en)}</div>
+        </div>
+        <button type="button" class="sound-circle-btn play-fr-btn" style="width: 34px; height: 34px;" data-fr="${escapeHtml(ex.fr)}">
+          <i class="fa-solid fa-volume-high"></i>
+        </button>
+      </div>
+    `;
+  });
+
+  const html = `
+    <div class="d-flex justify-content-between align-items-start gap-2 mb-2 pb-2 border-bottom">
+      <div>
+        <span class="badge bg-primary mb-1">${escapeHtml(entry.part_of_speech || "Dictionnaire")}</span>
+        <div class="d-flex align-items-center gap-2">
+          <h4 class="h4 fw-bold text-primary mb-0">${escapeHtml(entry.word)}</h4>
+          ${entry.lemma && entry.lemma.toLowerCase() !== entry.word.toLowerCase()
+            ? `<span class="badge bg-light text-dark border">Base : ${escapeHtml(entry.lemma)}</span>`
+            : ""}
+          <button type="button" class="sound-circle-btn play-fr-btn" style="width: 34px; height: 34px;" data-fr="${escapeHtml(entry.word)}" title="Écouter">
+            <i class="fa-solid fa-volume-high"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="d-flex align-items-center gap-1">
+        <button type="button" id="popover-star-btn" class="star-word-btn ${isStarred ? 'starred' : ''}" title="Sauvegarder dans Mes Mots Favoris">
+          ${isStarred ? "⭐ Favori !" : "☆ Favori"}
+        </button>
+        <button type="button" id="close-dict-popover-btn" class="btn-close ms-1" aria-label="Fermer"></button>
+      </div>
+    </div>
+
+    <div class="fw-bold fs-5 mb-2">🇬🇧 ${escapeHtml(entry.english_meaning || "")}</div>
+    ${entry.grammar_tip ? `<div class="small text-muted mb-2">💡 <strong>Astuce :</strong> ${escapeHtml(entry.grammar_tip)}</div>` : ""}
+
+    ${formsHtml}
+
+    <div class="small fw-bold text-uppercase text-muted mb-1">💬 Exemples en phrase :</div>
+    ${examplesHtml}
+  `;
+
+  $("#smart-dict-content").html(html);
+}
+
+// =========================================================
 // DOCUMENT READY & EVENT HANDLERS
 // =========================================================
 
@@ -792,6 +1174,135 @@ $(document).ready(function () {
   setDarkMode(darkMode);
   loadStructuredCourseData();
   loadCurriculumData();
+  loadVerbsAndStarredWords();
+
+  // =========================================================
+  // RIGHT-CLICK SMART DICTIONARY EVENT HANDLERS
+  // =========================================================
+  $(document).on("contextmenu", function (e) {
+    // Allow normal right-click inside text inputs/textareas unless text is selected
+    if ($(e.target).is("input, textarea") && !window.getSelection().toString().trim()) {
+      return;
+    }
+    const found = extractWordAtPoint(e.clientX, e.clientY);
+    if (!found || !found.word) return;
+
+    e.preventDefault();
+    $("#smart-dict-content").html(`
+      <div class="text-center py-3">
+        <div class="fs-3 mb-1"><i class="fa-solid fa-spinner fa-spin text-primary"></i></div>
+        <div class="fw-bold">📖 Recherche de « ${escapeHtml(found.word)} »...</div>
+        <div class="small text-muted">Traduction, formes, conjugaison &amp; exemples</div>
+      </div>
+    `);
+    positionPopoverNearCursor(e.clientX, e.clientY);
+
+    $.post("/api/dictionary_lookup", { word: found.word, context: found.context }, function (res) {
+      if (res.error || !res.entry) {
+        $("#smart-dict-content").html(`
+          <div class="d-flex justify-content-between align-items-center">
+            <span class="text-danger fw-bold">${escapeHtml(res.error || "Mot introuvable")}</span>
+            <button type="button" id="close-dict-popover-btn" class="btn-close"></button>
+          </div>
+        `);
+        return;
+      }
+      renderSmartDictionaryPopoverContent(res.entry, res.is_starred);
+      positionPopoverNearCursor(e.clientX, e.clientY);
+    });
+  });
+
+  $(document).on("click", "#close-dict-popover-btn", function () {
+    $("#smart-dict-popover").hide();
+  });
+
+  // Close popover when clicking outside
+  $(document).on("mousedown", function (e) {
+    const $pop = $("#smart-dict-popover");
+    if ($pop.is(":visible") && !$(e.target).closest("#smart-dict-popover").length && e.button === 0) {
+      $pop.hide();
+    }
+  });
+
+  // Star / Unstar word inside Right-Click Popover
+  $(document).on("click", "#popover-star-btn", function () {
+    if (!lastDictLookupEntry) return;
+    const $btn = $(this);
+    $.post("/api/toggle_star_word", { entry_json: JSON.stringify(lastDictLookupEntry) }, function (res) {
+      starredWords = res.starred_words || [];
+      renderStarredWordsPanel();
+      if (res.starred) {
+        $btn.addClass("starred").text("⭐ Favori !");
+      } else {
+        $btn.removeClass("starred").text("☆ Favori");
+      }
+    });
+  });
+
+  // Remove Starred word from Starred Words Panel
+  $(document).on("click", ".remove-star-btn", function () {
+    const rawEntry = $(this).attr("data-entry");
+    $.post("/api/toggle_star_word", { entry_json: rawEntry }, function (res) {
+      starredWords = res.starred_words || [];
+      renderStarredWordsPanel();
+    });
+  });
+
+  // Verbs & Starred Words Sub-Tabs
+  $(document).on("click", ".verbs-subtab-btn", function () {
+    const subtab = $(this).attr("data-subtab");
+    $(".verbs-subtab-btn").removeClass("active");
+    $(this).addClass("active");
+    if (subtab === "verbs-panel") {
+      $("#starred-panel").hide();
+      $("#verbs-panel").show();
+    } else {
+      $("#verbs-panel").hide();
+      $("#starred-panel").show();
+      renderStarredWordsPanel();
+    }
+  });
+
+  // Filter Common Daily Verbs by Category
+  $(document).on("click", ".verb-cat-pill", function () {
+    $(".verb-cat-pill").removeClass("active");
+    $(this).addClass("active");
+    selectedVerbCategory = $(this).attr("data-cat");
+    renderCommonVerbsGrid();
+  });
+
+  // Conjugate any custom verb via AI Search Box
+  $("#conjugate-custom-verb-btn").on("click", function () {
+    const query = ($("#custom-verb-input").val() || "").trim();
+    if (!query) {
+      showNotification("Écris un verbe à conjuguer (ex: courir, finir, dormir) !");
+      return;
+    }
+    const $btn = $(this);
+    const orig = $btn.html();
+    $btn.prop("disabled", true).html('<i class="fa-solid fa-spinner fa-spin"></i>');
+
+    $.post("/api/conjugate_verb", { verb: query }, function (res) {
+      $btn.prop("disabled", false).html(orig);
+      if (res.error || !res.verb_data) {
+        showNotification(res.error || "Impossible de conjuguer ce verbe.");
+        return;
+      }
+      $("#starred-panel").hide();
+      $("#verbs-panel").show();
+      activeVerbObj = res.verb_data;
+      renderActiveVerbDetail(activeVerbObj);
+    }).fail(function () {
+      $btn.prop("disabled", false).html(orig);
+    });
+  });
+
+  $("#custom-verb-input").on("keydown", function (e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      $("#conjugate-custom-verb-btn").click();
+    }
+  });
 
   // Top 3 Main Navigation Buttons
   $(document).on("click", ".fun-tab-btn", function () {

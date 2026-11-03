@@ -9,7 +9,7 @@ from threading import Thread
 from unidecode import unidecode
 from flask import Flask, render_template, request, jsonify, url_for, redirect
 from queue import Empty as EmptyQueue
-from python import speech, language, utils, curriculum, structured_course
+from python import speech, language, utils, curriculum, structured_course, dictionary_verbs
 from python.memory import Memory
 from python.config import Config
 from python.chatbot import Chatbot
@@ -666,6 +666,69 @@ def api_toggle_course_review():
     module_id = request.form.get('module_id', '')
     progress = structured_course.toggle_module_review_flag(module_id) if module_id else structured_course.load_course_progress()
     return jsonify({'progress': progress})
+
+
+@app.route('/api/verbs_and_starred', methods=['GET'])
+def api_get_verbs_and_starred():
+    """
+    Return the common daily verbs conjugation list and the user's starred words.
+    """
+    return jsonify({
+        'verbs': dictionary_verbs.COMMON_DAILY_VERBS,
+        'starred_words': dictionary_verbs.load_starred_words(),
+    })
+
+
+@app.route('/api/dictionary_lookup', methods=['POST'])
+def api_dictionary_lookup():
+    """
+    Look up any right-clicked French word: translation, multiple forms/conjugations, and example sentences.
+    """
+    word = (request.form.get('word') or '').strip()
+    context = (request.form.get('context') or '').strip()
+    if not word:
+        return jsonify({'entry': None, 'error': 'Aucun mot sélectionné.'}), 400
+    try:
+        entry = dictionary_verbs.lookup_word_smart_dictionary(
+            client=config.gemini.client,
+            word=word,
+            context_sentence=context,
+        )
+        starred_list = dictionary_verbs.load_starred_words()
+        key = (entry.get('lemma') or entry.get('word') or '').strip().lower()
+        is_starred = any((w.get('lemma') or w.get('word') or '').strip().lower() == key for w in starred_list)
+        return jsonify({'entry': entry, 'is_starred': is_starred, 'error': None})
+    except Exception as e:
+        return jsonify({'entry': None, 'error': utils.get_error_message_from_exception(e)})
+
+
+@app.route('/api/toggle_star_word', methods=['POST'])
+def api_toggle_star_word():
+    """
+    Star or unstar a word from the right-click dictionary popup or Starred Words section.
+    """
+    raw_entry = request.form.get('entry_json', '{}')
+    try:
+        entry = json.loads(raw_entry)
+        res = dictionary_verbs.toggle_starred_word(entry)
+        return jsonify({'starred': res['starred'], 'starred_words': res['starred_words'], 'error': None})
+    except Exception as e:
+        return jsonify({'starred': False, 'starred_words': dictionary_verbs.load_starred_words(), 'error': utils.get_error_message_from_exception(e)})
+
+
+@app.route('/api/conjugate_verb', methods=['POST'])
+def api_conjugate_verb():
+    """
+    Conjugate any custom French verb searched on the Verb Conjugation page.
+    """
+    verb_query = (request.form.get('verb') or '').strip()
+    if not verb_query:
+        return jsonify({'verb_data': None, 'error': 'Entrez un verbe.'}), 400
+    try:
+        verb_data = dictionary_verbs.conjugate_any_verb_with_gemini(client=config.gemini.client, verb_query=verb_query)
+        return jsonify({'verb_data': verb_data, 'error': None})
+    except Exception as e:
+        return jsonify({'verb_data': None, 'error': utils.get_error_message_from_exception(e)})
 
 
 def exit_graceful(signum, frame) -> None:
