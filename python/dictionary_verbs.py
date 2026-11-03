@@ -497,83 +497,214 @@ def _parse_json(raw_text: str) -> Dict[str, Any]:
     return json.loads(cleaned)
 
 
+def _match_common_verb_any_form(clean_word: str) -> Optional[Dict[str, Any]]:
+    """
+    Check if `clean_word` matches the infinitive, past participle, or any conjugated form
+    of our 20 pre-loaded COMMON_DAILY_VERBS.
+    """
+    for v in COMMON_DAILY_VERBS:
+        if v["verb"] == clean_word or v["past_participle"].split("(")[0] == clean_word:
+            return v
+        for tense_lines in v.get("tenses", {}).values():
+            for line in tense_lines:
+                tokens = [t.strip("()!.,").lower() for t in line.replace("'", " ").replace("/", " ").split()]
+                if clean_word in tokens:
+                    return v
+    return None
+
+
+def _starts_with_vowel(s: str) -> bool:
+    return bool(s) and s[0].lower() in "aeiouyàâäéèêëîïôöùûüœæh"
+
+
+def _je_prefix(verb_form: str) -> str:
+    return f"j'{verb_form}" if _starts_with_vowel(verb_form) else f"je {verb_form}"
+
+
+def _build_5_tenses_in_python(
+    infinitive: str,
+    auxiliary: str,
+    past_participle: str,
+    present_6: List[str],
+    imparfait_stem: str,
+    futur_stem: str,
+) -> Dict[str, List[str]]:
+    """
+    Deterministically build full 5-tense conjugation tables in Python from compact stems
+    so Gemini never has to output verbatim Bescherelle tables (preventing any recitation block!).
+    """
+    inf = (infinitive or "").strip().lower()
+    is_pronominal = inf.startswith("se ") or inf.startswith("s'")
+    base_inf = inf[3:].strip() if inf.startswith("se ") else (inf[2:].strip() if inf.startswith("s'") else inf)
+
+    # Fallback regular stems if not provided
+    if not present_6 or len(present_6) < 6:
+        if base_inf.endswith("er"):
+            st = base_inf[:-2]
+            present_6 = [f"{st}e", f"{st}es", f"{st}e", f"{st}ons", f"{st}ez", f"{st}ent"]
+        elif base_inf.endswith("ir"):
+            st = base_inf[:-2]
+            present_6 = [f"{st}is", f"{st}is", f"{st}it", f"{st}issons", f"{st}issez", f"{st}issent"]
+        elif base_inf.endswith("re"):
+            st = base_inf[:-2]
+            present_6 = [f"{st}s", f"{st}s", f"{st}", f"{st}ons", f"{st}ez", f"{st}ent"]
+        else:
+            st = base_inf
+            present_6 = [st, st, st, f"{st}ons", f"{st}ez", f"{st}ent"]
+
+    if not imparfait_stem:
+        nous_form = present_6[3]
+        imparfait_stem = nous_form[:-3] if nous_form.endswith("ons") else base_inf[:-2]
+
+    if not futur_stem:
+        futur_stem = base_inf[:-1] if base_inf.endswith("re") else base_inf
+
+    pp = (past_participle or "").strip() or (
+        f"{base_inf[:-2]}é" if base_inf.endswith("er") else f"{base_inf[:-2]}i"
+    )
+    aux = "être" if is_pronominal else ((auxiliary or "avoir").strip().lower())
+
+    if is_pronominal:
+        refl_v = ["me ", "te ", "se ", "nous ", "vous ", "se "]
+        refl_el = ["m'", "t'", "s'", "nous ", "vous ", "s'"]
+        subjects = ["je ", "tu ", "il/elle ", "nous ", "vous ", "ils/elles "]
+
+        def _fmt_pron(idx: int, vform: str) -> str:
+            r = refl_el[idx] if _starts_with_vowel(vform) else refl_v[idx]
+            return f"{subjects[idx]}{r}{vform}"
+
+        present_lines = [_fmt_pron(i, present_6[i]) for i in range(6)]
+        imp_endings = ["ais", "ais", "ait", "ions", "iez", "aient"]
+        imparfait_lines = [_fmt_pron(i, f"{imparfait_stem}{imp_endings[i]}") for i in range(6)]
+        fut_endings = ["ai", "as", "a", "ons", "ez", "ont"]
+        futur_lines = [_fmt_pron(i, f"{futur_stem}{fut_endings[i]}") for i in range(6)]
+        cond_lines = [_fmt_pron(i, f"{futur_stem}{imp_endings[i]}") for i in range(6)]
+        pc_lines = [
+            f"je me suis {pp}(e)",
+            f"tu t'es {pp}(e)",
+            f"il/elle s'est {pp}(e)",
+            f"nous nous sommes {pp}(e)s",
+            f"vous vous êtes {pp}(e)s",
+            f"ils/elles se sont {pp}(e)s",
+        ]
+    else:
+        subjects_other = ["tu", "il/elle", "nous", "vous", "ils/elles"]
+        present_lines = [_je_prefix(present_6[0])] + [f"{subjects_other[i-1]} {present_6[i]}" for i in range(1, 6)]
+
+        imp_endings = ["ais", "ais", "ait", "ions", "iez", "aient"]
+        imp_forms = [f"{imparfait_stem}{e}" for e in imp_endings]
+        imparfait_lines = [_je_prefix(imp_forms[0])] + [f"{subjects_other[i-1]} {imp_forms[i]}" for i in range(1, 6)]
+
+        fut_endings = ["ai", "as", "a", "ons", "ez", "ont"]
+        fut_forms = [f"{futur_stem}{e}" for e in fut_endings]
+        futur_lines = [_je_prefix(fut_forms[0])] + [f"{subjects_other[i-1]} {fut_forms[i]}" for i in range(1, 6)]
+
+        cond_forms = [f"{futur_stem}{e}" for e in imp_endings]
+        cond_lines = [_je_prefix(cond_forms[0])] + [f"{subjects_other[i-1]} {cond_forms[i]}" for i in range(1, 6)]
+
+        if aux == "être":
+            pc_lines = [
+                f"je suis {pp}(e)",
+                f"tu es {pp}(e)",
+                f"il/elle est {pp}(e)",
+                f"nous sommes {pp}(e)s",
+                f"vous êtes {pp}(e)s",
+                f"ils/elles sont {pp}(e)s",
+            ]
+        else:
+            pc_lines = [
+                f"j'ai {pp}",
+                f"tu as {pp}",
+                f"il/elle a {pp}",
+                f"nous avons {pp}",
+                f"vous avez {pp}",
+                f"ils/elles ont {pp}",
+            ]
+
+    return {
+        "Présent": present_lines,
+        "Passé Composé": pc_lines,
+        "Imparfait": imparfait_lines,
+        "Futur Simple": futur_lines,
+        "Conditionnel": cond_lines,
+    }
+
+
 def lookup_word_smart_dictionary(client, word: str, context_sentence: str = "") -> Dict[str, Any]:
     """
     Look up any right-clicked word in French: returns English translation, part of speech,
     multiple forms (full conjugation table if verb, or gender/plural forms if noun/adjective),
     and 2 everyday example sentences.
+    Uses compact stem extraction + Python conjugation to avoid any Gemini recitation blocks.
     """
     clean_word = word.strip(" .,!?;:\"'()[]{}«»").lower()
     if not clean_word:
         raise ValueError("No word selected")
 
-    # 1. Check if it matches one of our pre-loaded 20 daily verbs first for 0ms speed!
-    for v in COMMON_DAILY_VERBS:
-        if v["verb"] == clean_word:
-            return {
-                "word": word,
-                "lemma": v["verb"],
-                "part_of_speech": f"Verbe ({v['category']}) — Auxiliaire {v['auxiliary']}",
-                "english_meaning": v["en"],
-                "grammar_tip": v["tip"],
-                "is_verb": True,
-                "forms": {
-                    "infinitive": v["verb"],
-                    "auxiliary": v["auxiliary"],
-                    "past_participle": v["past_participle"],
-                    "tenses": {
-                        "Présent": v["tenses"]["Présent"],
-                        "Passé Composé": v["tenses"]["Passé Composé"],
-                        "Imparfait": v["tenses"]["Imparfait"],
-                        "Futur Simple": v["tenses"]["Futur Simple"],
-                        "Conditionnel": v["tenses"]["Conditionnel"]
-                    }
+    # 1. Check if it matches any form of our 20 pre-loaded daily verbs first (0ms!)
+    matched_verb = _match_common_verb_any_form(clean_word)
+    if matched_verb:
+        return {
+            "word": word,
+            "lemma": matched_verb["verb"],
+            "part_of_speech": f"Verbe ({matched_verb['category']}) — Auxiliaire {matched_verb['auxiliary']}",
+            "english_meaning": matched_verb["en"],
+            "grammar_tip": matched_verb["tip"],
+            "is_verb": True,
+            "forms": {
+                "infinitive": matched_verb["verb"],
+                "auxiliary": matched_verb["auxiliary"],
+                "past_participle": matched_verb["past_participle"],
+                "tenses": {
+                    "Présent": matched_verb["tenses"]["Présent"],
+                    "Passé Composé": matched_verb["tenses"]["Passé Composé"],
+                    "Imparfait": matched_verb["tenses"]["Imparfait"],
+                    "Futur Simple": matched_verb["tenses"]["Futur Simple"],
+                    "Conditionnel": matched_verb["tenses"]["Conditionnel"],
                 },
-                "examples": v["examples"]
-            }
+            },
+            "examples": matched_verb["examples"],
+        }
 
     # 2. Check local dictionary cache
     cache = _load_dict_cache()
     if clean_word in cache:
         return cache[clean_word]
 
-    # 3. Query Gemini (gemini-3.5-flash-lite with minimal thinking)
+    # 3. Query Gemini for compact metadata + stems (never full 30-line tables, avoiding recitation!)
     system_instruction = (
-        "You are an interactive French-English dictionary for a B1 French learner in Geneva. "
-        "Given a clicked word (and optional context sentence), return ONLY a valid JSON object with this exact schema:\n"
+        "You are an original French-English tutor creating a custom flashcard for Balu, who lives in Geneva "
+        "with his wife Lakshmi and 12-year-old son. "
+        "Given a clicked French word and its sentence context, return ONLY a valid JSON object with this schema:\n"
         "{\n"
-        '  "word": "<the clicked word>",\n'
-        '  "lemma": "<base dictionary form: infinitive if verb, masculine singular if noun/adj>",\n'
-        '  "part_of_speech": "<e.g., Verbe, Nom masculin, Nom féminin, Adjectif, Adverbe, Connecteur>",\n'
-        '  "english_meaning": "<clear English translation and meaning in context>",\n'
-        '  "grammar_tip": "<1 short, helpful tip on how to use this word or avoid traps>",\n'
-        '  "is_verb": <true if the word is a verb or conjugated verb form, else false>,\n'
-        '  "forms": {\n'
-        '    // IF is_verb is true, include:\n'
-        '    "infinitive": "<infinitive>",\n'
+        '  "word": "<clicked word>",\n'
+        '  "lemma": "<infinitive if verb, masculine singular if noun/adjective>",\n'
+        '  "part_of_speech": "<Verbe, Nom masculin, Nom féminin, Adjectif, Adverbe, Préposition, etc.>",\n'
+        '  "english_meaning": "<English translation and meaning in this context>",\n'
+        '  "grammar_tip": "<1 short original tip for a student in Geneva>",\n'
+        '  "is_verb": <true if verb/conjugated verb/participle, else false>,\n'
+        '  "verb_info": {\n'
+        '    "infinitive": "<French infinitive>",\n'
         '    "auxiliary": "<avoir or être>",\n'
-        '    "past_participle": "<past participle>",\n'
-        '    "tenses": {\n'
-        '      "Présent": ["je ...", "tu ...", "il/elle ...", "nous ...", "vous ...", "ils/elles ..."],\n'
-        '      "Passé Composé": ["j\'ai / je suis ...", "tu ...", "il/elle ...", "nous ...", "vous ...", "ils/elles ..."],\n'
-        '      "Imparfait": ["je ...", "tu ...", "il/elle ...", "nous ...", "vous ...", "ils/elles ..."],\n'
-        '      "Futur Simple": ["je ...", "tu ...", "il/elle ...", "nous ...", "vous ...", "ils/elles ..."],\n'
-        '      "Conditionnel": ["je ...", "tu ...", "il/elle ...", "nous ...", "vous ...", "ils/elles ..."]\n'
-        '    }\n'
-        '    // IF is_verb is false, include:\n'
-        '    "masculine_singular": "<masc sg form with article if noun>",\n'
+        '    "past_participle": "<past participle without auxiliary>",\n'
+        '    "present_6": ["<1sg verb form without pronoun>", "<2sg>", "<3sg>", "<1pl>", "<2pl>", "<3pl>"],\n'
+        '    "imparfait_stem": "<stem before -ais, e.g. parl, finiss, pren>",\n'
+        '    "futur_stem": "<stem before -ai, e.g. parler, finir, prendr>"\n'
+        '  },\n'
+        '  "noun_adj_forms": {\n'
+        '    "masculine_singular": "<masc sg form>",\n'
         '    "feminine_singular": "<fem sg form>",\n'
-        '    "plural": "<plural form(s)>",\n'
-        '    "related_family": ["<related verb/noun/adjective 1>", "<related word 2>"]\n'
+        '    "plural": "<plural form>",\n'
+        '    "related_family": ["<related word 1>", "<related word 2>"]\n'
         '  },\n'
         '  "examples": [\n'
-        '    {"fr": "<natural everyday French sentence using the word>", "en": "<English translation>"},\n'
-        '    {"fr": "<second natural French sentence>", "en": "<English translation>"}\n'
+        '    {"fr": "<original French sentence set in Geneva using the word>", "en": "<English translation>"},\n'
+        '    {"fr": "<second original French sentence about daily family/work life>", "en": "<English translation>"}\n'
         '  ]\n'
         "}"
     )
 
-    user_input = f"Clicked word: {word}\nContext sentence: {context_sentence or 'N/A'}\nReturn ONLY the JSON object."
+    user_input = f"Word: {word}\nContext: {context_sentence or 'General daily French'}\nReturn ONLY the JSON."
     interaction = client.interactions.create(
         model=DEFAULT_FAST_MODEL,
         system_instruction=system_instruction,
@@ -581,7 +712,59 @@ def lookup_word_smart_dictionary(client, word: str, context_sentence: str = "") 
         generation_config={"thinking_level": "minimal"},
         store=False,
     )
-    result = _parse_json(_extract_text(interaction))
+    raw_data = _parse_json(_extract_text(interaction))
+
+    is_verb = bool(raw_data.get("is_verb", False))
+    if is_verb:
+        vinfo = raw_data.get("verb_info") or {}
+        inf = vinfo.get("infinitive") or raw_data.get("lemma") or clean_word
+        # If the lemma itself matches one of our 20 daily verbs, use its rich table!
+        matched_by_lemma = _match_common_verb_any_form(inf.strip().lower())
+        if matched_by_lemma:
+            tenses_dict = {
+                "Présent": matched_by_lemma["tenses"]["Présent"],
+                "Passé Composé": matched_by_lemma["tenses"]["Passé Composé"],
+                "Imparfait": matched_by_lemma["tenses"]["Imparfait"],
+                "Futur Simple": matched_by_lemma["tenses"]["Futur Simple"],
+                "Conditionnel": matched_by_lemma["tenses"]["Conditionnel"],
+            }
+            aux = matched_by_lemma["auxiliary"]
+            pp = matched_by_lemma["past_participle"]
+        else:
+            aux = vinfo.get("auxiliary", "avoir")
+            pp = vinfo.get("past_participle", "")
+            tenses_dict = _build_5_tenses_in_python(
+                infinitive=inf,
+                auxiliary=aux,
+                past_participle=pp,
+                present_6=vinfo.get("present_6") or [],
+                imparfait_stem=vinfo.get("imparfait_stem") or "",
+                futur_stem=vinfo.get("futur_stem") or "",
+            )
+        forms_out = {
+            "infinitive": inf,
+            "auxiliary": aux,
+            "past_participle": pp,
+            "tenses": tenses_dict,
+        }
+    else:
+        forms_out = raw_data.get("noun_adj_forms") or {
+            "masculine_singular": raw_data.get("lemma", word),
+            "feminine_singular": "",
+            "plural": "",
+            "related_family": [],
+        }
+
+    result = {
+        "word": raw_data.get("word", word),
+        "lemma": raw_data.get("lemma", word),
+        "part_of_speech": raw_data.get("part_of_speech", "Mot"),
+        "english_meaning": raw_data.get("english_meaning", ""),
+        "grammar_tip": raw_data.get("grammar_tip", ""),
+        "is_verb": is_verb,
+        "forms": forms_out,
+        "examples": raw_data.get("examples") or [],
+    }
     cache[clean_word] = result
     _save_dict_cache(cache)
     return result
@@ -589,35 +772,31 @@ def lookup_word_smart_dictionary(client, word: str, context_sentence: str = "") 
 
 def conjugate_any_verb_with_gemini(client, verb_query: str) -> Dict[str, Any]:
     """
-    Conjugate any custom French verb searched on the Verb Conjugation page.
+    Conjugate any custom French verb searched on the Verb Conjugation page using compact stem extraction
+    + deterministic Python table construction (zero recitation risk).
     """
     clean_v = verb_query.strip().lower()
-    for v in COMMON_DAILY_VERBS:
-        if v["verb"] == clean_v:
-            return v
+    matched = _match_common_verb_any_form(clean_v)
+    if matched:
+        return matched
 
     system_instruction = (
-        "You are a French verb conjugation expert. Given a French verb (or English verb to translate to French), "
-        "return ONLY a valid JSON object matching this exact schema:\n"
+        "You are a French grammar assistant. Given a verb query (in French or English), identify the French "
+        "infinitive and its conjugation stems, and write 2 original example sentences set in Geneva. "
+        "Return ONLY a valid JSON object with this schema:\n"
         "{\n"
         '  "verb": "<French infinitive>",\n'
         '  "en": "<English meaning>",\n'
-        '  "category": "custom",\n'
-        '  "emoji": "⚡",\n'
         '  "auxiliary": "<avoir or être>",\n'
         '  "past_participle": "<past participle>",\n'
-        '  "tip": "<1 helpful tip about this verb\'s conjugation or usage>",\n'
-        '  "tenses": {\n'
-        '    "Présent": ["je ...", "tu ...", "il/elle ...", "nous ...", "vous ...", "ils/elles ..."],\n'
-        '    "Passé Composé": ["...", "...", "...", "...", "...", "..."],\n'
-        '    "Imparfait": ["...", "...", "...", "...", "...", "..."],\n'
-        '    "Futur Simple": ["...", "...", "...", "...", "...", "..."],\n'
-        '    "Conditionnel": ["...", "...", "...", "...", "...", "..."],\n'
-        '    "Impératif / Subjonctif": ["<Imperative forms>", "<Subjunctive form>"]\n'
-        '  },\n'
+        '  "tip": "<1 helpful tip about this verb>",\n'
+        '  "present_6": ["<1sg verb form without pronoun>", "<2sg>", "<3sg>", "<1pl>", "<2pl>", "<3pl>"],\n'
+        '  "imparfait_stem": "<stem before -ais>",\n'
+        '  "futur_stem": "<stem before -ai>",\n'
+        '  "imperative_subj": ["<Imperative forms>", "<Subjunctive que je ...>"],\n'
         '  "examples": [\n'
-        '    {"fr": "<daily life example sentence 1>", "en": "<English translation>"},\n'
-        '    {"fr": "<daily life example sentence 2>", "en": "<English translation>"}\n'
+        '    {"fr": "<original French example in Geneva>", "en": "<English translation>"},\n'
+        '    {"fr": "<second original French example>", "en": "<English translation>"}\n'
         '  ]\n'
         "}"
     )
@@ -625,8 +804,32 @@ def conjugate_any_verb_with_gemini(client, verb_query: str) -> Dict[str, Any]:
     interaction = client.interactions.create(
         model=DEFAULT_FAST_MODEL,
         system_instruction=system_instruction,
-        input=f"Conjugate the verb: {verb_query}",
+        input=f"Verb: {verb_query}",
         generation_config={"thinking_level": "minimal"},
         store=False,
     )
-    return _parse_json(_extract_text(interaction))
+    raw = _parse_json(_extract_text(interaction))
+    inf = raw.get("verb", verb_query)
+    aux = raw.get("auxiliary", "avoir")
+    pp = raw.get("past_participle", "")
+    tenses = _build_5_tenses_in_python(
+        infinitive=inf,
+        auxiliary=aux,
+        past_participle=pp,
+        present_6=raw.get("present_6") or [],
+        imparfait_stem=raw.get("imparfait_stem") or "",
+        futur_stem=raw.get("futur_stem") or "",
+    )
+    tenses["Impératif / Subjonctif"] = raw.get("imperative_subj") or [f"que je {raw.get('present_6', [''])[0]}"]
+
+    return {
+        "verb": inf,
+        "en": raw.get("en", ""),
+        "category": "custom",
+        "emoji": "⚡",
+        "auxiliary": aux,
+        "past_participle": pp,
+        "tip": raw.get("tip", ""),
+        "tenses": tenses,
+        "examples": raw.get("examples") or [],
+    }
