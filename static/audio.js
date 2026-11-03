@@ -3,6 +3,8 @@ let source;
 let mediaRecorder;
 let mediaStream;
 let audioBuffers = [];
+let audioQueueUrls = [];
+let currentHtmlAudio = null;
 let startTime = 0;
 let pauseTime = 0;
 let isPlaying = false;
@@ -10,9 +12,37 @@ let isPaused = false;
 let stopPlaying = false;
 let recordedChunks = [];
 
+window.speechSpeedRate = parseFloat(localStorage.getItem('companion_speech_speed') || '0.85');
+
+window.applySpeedToAudioElement = function (audioEl) {
+    if (!audioEl) return;
+    const rate = window.speechSpeedRate || 0.85;
+    if ('preservesPitch' in audioEl) audioEl.preservesPitch = true;
+    if ('webkitPreservesPitch' in audioEl) audioEl.webkitPreservesPitch = true;
+    if ('mozPreservesPitch' in audioEl) audioEl.mozPreservesPitch = true;
+    audioEl.defaultPlaybackRate = rate;
+    audioEl.playbackRate = rate;
+};
+
+window.setSpeechSpeedRate = function (newRate) {
+    const parsed = parseFloat(newRate);
+    if (isNaN(parsed) || parsed <= 0) return;
+    window.speechSpeedRate = parsed;
+    localStorage.setItem('companion_speech_speed', String(parsed));
+    if (currentHtmlAudio) {
+        window.applySpeedToAudioElement(currentHtmlAudio);
+    }
+    if (source && source.playbackRate) {
+        try {
+            source.playbackRate.value = parsed;
+        } catch (e) {}
+    }
+};
+
 
 $(document).ready(function() {
     audioBuffers = [];
+    audioQueueUrls = [];
     startTime = 0;
     pauseTime = 0;
     isPlaying = false;
@@ -43,11 +73,7 @@ function loadAudioFromQueue() {
                 if (!response['empty']) {
                     const file_url = response['file_url'];
                     console.log('Fetching audio file:', file_url);
-                    const fetchResponse = await fetch(file_url);
-                    const arrayBuffer = await fetchResponse.arrayBuffer();
-
-                    // Decode the audio data from the MP3 file
-                    audioBuffers.push(await audioCtx.decodeAudioData(arrayBuffer));
+                    audioQueueUrls.push(file_url);
                     if (!isPlaying && !isPaused && !stopPlaying) {
                         playAudio();
                     }
@@ -61,25 +87,23 @@ function loadAudioFromQueue() {
 
 
 function playAudio() {
-    if (!isPlaying && audioBuffers.length > 0) {
-        if (audioCtx.state === 'suspended') {
-            audioCtx.resume();
-        }
+    if (!isPlaying && audioQueueUrls.length > 0) {
         isPlaying = true;
         isPaused = false;
         stopPlaying = false;
-        source = audioCtx.createBufferSource();
-        source.buffer = audioBuffers[0];
-        source.connect(audioCtx.destination);
 
-        // Set up an event handler to detect when the audio has finished playing
-        source.onended = function () {
+        const nextUrl = audioQueueUrls[0];
+        if (currentHtmlAudio) {
+            try { currentHtmlAudio.pause(); } catch (e) {}
+        }
+        currentHtmlAudio = new Audio(nextUrl);
+        window.applySpeedToAudioElement(currentHtmlAudio);
+
+        currentHtmlAudio.onended = function () {
             isPlaying = false;
             if (!isPaused) {
-                audioBuffers.shift();
-                if (audioBuffers.length > 0) {
-                    startTime = 0;
-                    pauseTime = 0;
+                audioQueueUrls.shift();
+                if (audioQueueUrls.length > 0) {
                     playAudio();
                 } else {
                     stopAudio();
@@ -87,10 +111,20 @@ function playAudio() {
             }
         };
 
-        // Start the source to play the audio
-        let offset = pauseTime;
-        source.start(0, offset);
-        startTime = audioCtx.currentTime - offset;
+        currentHtmlAudio.onerror = function () {
+            isPlaying = false;
+            audioQueueUrls.shift();
+            if (audioQueueUrls.length > 0) {
+                playAudio();
+            } else {
+                stopAudio();
+            }
+        };
+
+        currentHtmlAudio.play().catch(function (err) {
+            console.error('Audio play error:', err);
+            isPlaying = false;
+        });
         updateUIByAudioStatus(isPlaying);
     }
 }
@@ -100,18 +134,23 @@ async function playSingleAudioFile(file_url) {
     if (audioCtx === undefined) {
         initAudio();
     }
-    const fetchResponse = await fetch(file_url);
-    const arrayBuffer = await fetchResponse.arrayBuffer();
-    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-    source = audioCtx.createBufferSource();
-    source.buffer = audioBuffer;
-    source.connect(audioCtx.destination);
-    source.start()
+    if (currentHtmlAudio) {
+        try {
+            currentHtmlAudio.pause();
+            currentHtmlAudio.currentTime = 0;
+        } catch (e) {}
+    }
+    currentHtmlAudio = new Audio(file_url);
+    window.applySpeedToAudioElement(currentHtmlAudio);
+    await currentHtmlAudio.play();
 }
 
 
 function pauseAudio() {
     isPaused = true;
+    if (currentHtmlAudio) {
+        try { currentHtmlAudio.pause(); } catch (e) {}
+    }
     if (source) {
         try { source.stop(); } catch (e) {}
     }
@@ -124,11 +163,18 @@ function stopAudio() {
     stopPlaying = true;
     isPlaying = false;
     isPaused = false;
+    if (currentHtmlAudio) {
+        try {
+            currentHtmlAudio.pause();
+            currentHtmlAudio.currentTime = 0;
+        } catch (e) {}
+    }
     if (source) {
         try { source.stop(); } catch (e) {}
     }
     $.get('/clear_audio_queue', function (response) {});
     audioBuffers = [];
+    audioQueueUrls = [];
     pauseTime = 0;  // Reset the pause time so the audio starts from the beginning next time
     startTime = 0;
     updateUIByAudioStatus(isPlaying);

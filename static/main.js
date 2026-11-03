@@ -92,6 +92,8 @@ function speakFrenchText(text, btnEl) {
   });
 }
 
+const speakFrenchPhrase = speakFrenchText;
+
 function switchTab(tabId) {
   $(".fun-tab-btn").removeClass("active");
   $(`.fun-tab-btn[data-tab="${tabId}"]`).addClass("active");
@@ -1474,6 +1476,19 @@ $(document).ready(function () {
   loadCurriculumData();
   loadVerbsAndStarredWords();
 
+  // Initialize Talking Speed Dropdown in Header
+  const savedSpeed = localStorage.getItem("companion_speech_speed") || "0.85";
+  $("#speech-speed-select").val(savedSpeed);
+  if (window.setSpeechSpeedRate) {
+    window.setSpeechSpeedRate(savedSpeed);
+  }
+  $(document).on("change", "#speech-speed-select", function () {
+    const newSpeed = $(this).val();
+    if (window.setSpeechSpeedRate) {
+      window.setSpeechSpeedRate(newSpeed);
+    }
+  });
+
   // =========================================================
   // RIGHT-CLICK SMART DICTIONARY EVENT HANDLERS
   // =========================================================
@@ -1671,47 +1686,35 @@ $(document).ready(function () {
   $(document).on("click", "#hw-dictate-btn", function () {
     const $btn = $(this);
     const isRec = $btn.attr("data-recording") === "true";
+    initAudio();
     if (!isRec) {
       $btn.attr("data-recording", "true")
         .removeClass("fun-btn-blue")
         .addClass("fun-btn-red")
         .html('<i class="fa-solid fa-stop me-1"></i> Arrêter la dictée...');
-      activeOralBlobPromise = recordAudio();
+      activeOralBlobPromise = startRecording();
     } else {
       $btn.attr("data-recording", "false")
         .prop("disabled", true)
         .html('<i class="fa-solid fa-spinner fa-spin me-1"></i> Transcription...');
       stopRecording();
       if (activeOralBlobPromise) {
-        activeOralBlobPromise.then(function (recording) {
-          let fd = new FormData();
-          fd.append("audio", recording.blob, "homework_dictation.webm");
-          fd.append("language", "fr");
-          $.ajax({
-            type: "POST",
-            url: upload_endpoint,
-            data: fd,
-            processData: false,
-            contentType: false,
-            success: function (response) {
+        activeOralBlobPromise.then(function (blob) {
+          uploadAudio(blob).then(function (filename) {
+            $.post("/transcribe_recording", { filename: filename }, function (res) {
               $btn.prop("disabled", false)
                 .removeClass("fun-btn-red")
                 .addClass("fun-btn-blue")
                 .html("🎤 Dicter une phrase au micro");
-              if (response && response.text) {
+              if (res && res.error) {
+                showNotification(res.error);
+              }
+              if (res && res.recorded_text) {
                 const $ta = $("#homework-student-text");
                 const cur = ($ta.val() || "").trim();
-                $ta.val(cur ? cur + " " + response.text : response.text).trigger("input");
-              } else if (response && response.error) {
-                showNotification(response.error);
+                $ta.val(cur ? cur + " " + res.recorded_text : res.recorded_text).trigger("input");
               }
-            },
-            error: function () {
-              $btn.prop("disabled", false)
-                .removeClass("fun-btn-red")
-                .addClass("fun-btn-blue")
-                .html("🎤 Dicter une phrase au micro");
-            }
+            });
           });
         });
       }
