@@ -435,13 +435,50 @@ def print_memory_updates():
 @app.route('/api/curriculum', methods=['GET'])
 def api_get_curriculum():
     """
-    Return all structured class modules (Classes 1-11 + custom uploaded classes), DELF B1 roadmap, and study progress.
+    Return all structured class modules (Classes 1-11 + custom uploaded classes), DELF B1 roadmap, study progress, and saved homework.
     """
     return jsonify({
         'classes': curriculum.get_all_classes(),
         'roadmap': curriculum.DELF_B1_ROADMAP,
         'progress': curriculum.load_progress(),
+        'homework_history': curriculum.load_homework_submissions(),
     })
+
+
+@app.route('/api/evaluate_homework', methods=['POST'])
+def api_evaluate_homework():
+    """
+    Evaluate and correct a student's written homework for a class or custom prompt, and save to homework history.
+    """
+    class_id = (request.form.get('class_id') or 'class-11').strip()
+    custom_prompt = (request.form.get('custom_prompt') or '').strip()
+    student_text = (request.form.get('student_text') or '').strip()
+    if not student_text:
+        return jsonify({'submission': None, 'error': 'Écris d\'abord ton devoir en français dans la zone de texte !'}), 400
+    try:
+        res = curriculum.evaluate_homework_submission(
+            client=config.gemini.client,
+            class_id=class_id,
+            custom_prompt=custom_prompt,
+            student_text=student_text,
+        )
+        return jsonify({
+            'submission': res['submission'],
+            'homework_history': res['history'],
+            'error': None,
+        })
+    except Exception as e:
+        return jsonify({'submission': None, 'error': utils.get_error_message_from_exception(e)}), 500
+
+
+@app.route('/api/delete_homework', methods=['POST'])
+def api_delete_homework():
+    """
+    Delete a saved homework submission by ID.
+    """
+    submission_id = (request.form.get('submission_id') or '').strip()
+    history = curriculum.delete_homework_submission(submission_id) if submission_id else curriculum.load_homework_submissions()
+    return jsonify({'homework_history': history, 'error': None})
 
 
 @app.route('/api/speak_french', methods=['POST'])

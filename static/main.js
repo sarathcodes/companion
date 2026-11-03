@@ -32,6 +32,10 @@ let selectedVerbCategory = "ALL";
 let activeVerbObj = null;
 let lastDictLookupEntry = null;
 
+// Homework Studio State
+let homeworkHistory = [];
+let selectedHomeworkClassId = "class-11";
+
 const QUEST_EMOJIS = {
   "a1-m1": "👨‍👩‍👦",
   "a1-m2": "⏰",
@@ -537,10 +541,17 @@ function loadCurriculumData() {
     curriculumClasses = data.classes || [];
     b1Roadmap = data.roadmap || null;
     studyProgress = data.progress || { completed_exercises: [], completed_speaking: [], mastered_classes: [] };
+    homeworkHistory = data.homework_history || [];
+
+    if (curriculumClasses.length > 0) {
+      selectedHomeworkClassId = curriculumClasses[curriculumClasses.length - 1].id;
+    }
 
     updateTotalXP();
     renderClassesGrid();
     populateChatFocusSelector();
+    initHomeworkStudio();
+    renderHomeworkHistory();
   });
 }
 
@@ -732,9 +743,14 @@ function renderSingleClassStep() {
           ⬅️ Tous les Cours (1–11)
         </button>
         <h2 class="h4 fw-bold mb-0">🎒 Cours ${escapeHtml(cls.number)} : ${escapeHtml(cls.title)}</h2>
-        <button type="button" class="fun-btn fun-btn-purple py-1 px-3 go-chat-class-btn" data-class-id="${escapeHtml(cls.id)}">
-          💬 Parler de ce cours avec Renée
-        </button>
+        <div class="d-flex flex-wrap gap-2">
+          <button type="button" class="fun-btn fun-btn-green py-1 px-3 go-homework-class-btn" data-class-id="${escapeHtml(cls.id)}">
+            ✍️ Faire mon Devoir Écrit
+          </button>
+          <button type="button" class="fun-btn fun-btn-purple py-1 px-3 go-chat-class-btn" data-class-id="${escapeHtml(cls.id)}">
+            💬 Parler de ce cours avec Renée
+          </button>
+        </div>
       </div>
 
       <div class="stepper-bar">
@@ -784,6 +800,288 @@ function populateChatFocusSelector() {
 
   curriculumClasses.forEach(function (cls) {
     $chatSelect.append(`<option value="${escapeHtml(cls.id)}">🎒 Cours ${escapeHtml(cls.number)} : ${escapeHtml(cls.title)}</option>`);
+  });
+}
+
+// =========================================================
+// 2B. MES DEVOIRS (WRITE & CORRECT CLASS HOMEWORK STUDIO)
+// =========================================================
+
+function initHomeworkStudio() {
+  const $sel = $("#homework-class-select");
+  if (!$sel.length) return;
+  $sel.empty();
+
+  // List classes newest first so the last class (Cours 11) is right at the top!
+  const reversed = curriculumClasses.slice().reverse();
+  reversed.forEach(function (cls, idx) {
+    const badge = idx === 0 ? "⭐ DERNIER COURS — " : "";
+    $sel.append(
+      `<option value="${escapeHtml(cls.id)}">${badge}Cours ${escapeHtml(cls.number)} (${escapeHtml(cls.date)}) : ${escapeHtml(cls.title)}</option>`
+    );
+  });
+  $sel.append(`<option value="custom">✨ Autre devoir / Sujet libre donné par le professeur</option>`);
+
+  if (selectedHomeworkClassId) {
+    $sel.val(selectedHomeworkClassId);
+  }
+  updateHomeworkSelectedClass();
+}
+
+function updateHomeworkSelectedClass() {
+  const val = $("#homework-class-select").val() || selectedHomeworkClassId;
+  selectedHomeworkClassId = val;
+
+  const cls = curriculumClasses.find(c => c.id === val);
+  const $promptInput = $("#homework-prompt-input");
+  const $starters = $("#homework-starters-bar");
+  const $helper = $("#homework-class-helper");
+
+  if (!cls || val === "custom") {
+    $promptInput.val("Rédigez votre devoir en français (vous pouvez écrire la consigne exacte de votre professeur ici).");
+    $starters.html(`
+      <span class="small fw-bold text-muted me-1">Amorces utiles :</span>
+      <button type="button" class="btn btn-sm btn-light border rounded-pill hw-starter-chip" data-phrase="À mon avis, ">À mon avis, ...</button>
+      <button type="button" class="btn btn-sm btn-light border rounded-pill hw-starter-chip" data-phrase="D'abord, ">D'abord, ...</button>
+      <button type="button" class="btn btn-sm btn-light border rounded-pill hw-starter-chip" data-phrase="Cependant, ">Cependant, ...</button>
+      <button type="button" class="btn btn-sm btn-light border rounded-pill hw-starter-chip" data-phrase="Du coup, ">Du coup, ...</button>
+      <button type="button" class="btn btn-sm btn-light border rounded-pill hw-starter-chip" data-phrase="Pour conclure, ">Pour conclure, ...</button>
+    `);
+    $helper.html(`
+      <h3 class="h5 fw-bold mb-2">💡 Astuces B1 pour ton Devoir</h3>
+      <ul class="small mb-0 ps-3">
+        <li class="mb-2">Utilise <strong>l'Imparfait</strong> pour les habitudes passées et les descriptions (<em>Quand j'étais jeune, je jouais...</em>).</li>
+        <li class="mb-2">Utilise <strong>le Passé Composé</strong> pour une action précise et terminée (<em>Un jour, j'ai visité...</em>).</li>
+        <li class="mb-0">Relie tes phrases avec : <strong>parce que, cependant, du coup, surtout, d'ailleurs</strong>.</li>
+      </ul>
+    `);
+    return;
+  }
+
+  $promptInput.val(cls.homework || `Rédigez quelques phrases en utilisant le vocabulaire et la grammaire du Cours ${cls.number} (${cls.title}).`);
+
+  // Build starter chips from the class's speaking_prompts target_structures + vocabulary
+  let chipsList = [];
+  (cls.speaking_prompts || []).forEach(function (sp) {
+    (sp.target_structures || []).forEach(function (st) {
+      if (chipsList.indexOf(st) === -1) chipsList.push(st);
+    });
+  });
+  if (chipsList.length === 0) {
+    (cls.vocabulary || []).slice(0, 5).forEach(function (v) {
+      chipsList.push(v.fr.split(" (")[0]);
+    });
+  }
+
+  let chipsHtml = `<span class="small fw-bold text-muted me-1">Clique pour insérer :</span>`;
+  chipsList.slice(0, 7).forEach(function (phrase) {
+    const cleanPhrase = phrase.replace(/\.\.\.$/, "") + " ";
+    chipsHtml += `<button type="button" class="btn btn-sm btn-light border rounded-pill hw-starter-chip fw-bold text-primary" data-phrase="${escapeHtml(cleanPhrase)}">+ ${escapeHtml(phrase)}</button>`;
+  });
+  $starters.html(chipsHtml);
+
+  // Build right-side helper with the class's rule & vocabulary
+  let vocabItems = (cls.vocabulary || []).slice(0, 8).map(function (v) {
+    const cleanFr = v.fr.split(" vs.")[0].split(" (")[0].trim();
+    return `
+      <div class="d-flex justify-content-between align-items-center py-1 border-bottom small">
+        <div>
+          <strong class="text-primary">${escapeHtml(v.fr)}</strong>
+          <span class="text-muted"> — ${escapeHtml(v.en)}</span>
+        </div>
+        <button type="button" class="sound-circle-btn play-fr-btn" style="width: 28px; height: 28px; font-size: 0.75rem;" data-fr="${escapeHtml(cleanFr)}" title="Écouter">
+          <i class="fa-solid fa-volume-high"></i>
+        </button>
+      </div>
+    `;
+  }).join("");
+
+  let rulesItems = "";
+  if (cls.concepts && cls.concepts.length > 0) {
+    const firstConcept = cls.concepts[0];
+    const rList = (firstConcept.rules || []).slice(0, 3).map(r => `<li class="mb-1">${escapeHtml(r)}</li>`).join("");
+    rulesItems = `
+      <div class="p-2 rounded-3 mb-3" style="background: #eff6ff; border: 1px solid #bfdbfe;">
+        <div class="small fw-bold text-primary mb-1">📌 ${escapeHtml(firstConcept.title)}</div>
+        <ul class="small mb-0 ps-3">${rList}</ul>
+      </div>
+    `;
+  }
+
+  $helper.html(`
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <span class="badge bg-primary">🎒 Aide-Mémoire Cours ${escapeHtml(cls.number)}</span>
+      <span class="small text-muted fw-bold">${escapeHtml(cls.date)}</span>
+    </div>
+    <h3 class="h6 fw-bold mb-2">${escapeHtml(cls.title)}</h3>
+    ${rulesItems}
+    <div class="small fw-bold text-uppercase text-muted mb-1">🃏 Mots du cours à utiliser :</div>
+    <div>${vocabItems}</div>
+  `);
+}
+
+function openHomeworkForClass(classId) {
+  selectedHomeworkClassId = classId || (curriculumClasses.length ? curriculumClasses[curriculumClasses.length - 1].id : "class-11");
+  switchTab("tab-homework");
+  $("#homework-class-select").val(selectedHomeworkClassId);
+  updateHomeworkSelectedClass();
+  $("#homework-student-text").focus();
+}
+
+function renderHomeworkCorrectionResult(submission) {
+  const $container = $("#homework-correction-result");
+  if (!submission || !submission.evaluation) {
+    $container.empty();
+    return;
+  }
+
+  const ev = submission.evaluation;
+  const score = ev.score || 0;
+  const badgeClass = score >= 8 ? "bg-success" : (score >= 6 ? "bg-warning text-dark" : "bg-danger");
+
+  let mistakesHtml = "";
+  if (ev.mistakes && ev.mistakes.length > 0) {
+    mistakesHtml = ev.mistakes.map(function (m) {
+      return `
+        <div class="p-3 rounded-4 bg-white border mb-2">
+          <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+            <span class="badge bg-danger-subtle text-danger border border-danger-subtle text-decoration-line-through fs-6">
+              ❌ ${escapeHtml(m.original)}
+            </span>
+            <span class="fw-bold text-muted">➡️</span>
+            <span class="badge bg-success-subtle text-success border border-success-subtle fs-6">
+              ✅ ${escapeHtml(m.correction)}
+            </span>
+            <button type="button" class="sound-circle-btn play-fr-btn ms-auto" style="width: 32px; height: 32px;" data-fr="${escapeHtml(m.correction)}" title="Écouter la correction">
+              <i class="fa-solid fa-volume-high"></i>
+            </button>
+          </div>
+          <div class="small text-muted">💡 <strong>Règle :</strong> ${escapeHtml(m.rule)}</div>
+        </div>
+      `;
+    }).join("");
+  } else {
+    mistakesHtml = `
+      <div class="p-3 rounded-4 bg-white border text-success fw-bold">
+        🎉 Aucune faute détectée ! Ton texte est grammaticalement parfait !
+      </div>
+    `;
+  }
+
+  let strengthsHtml = (ev.strengths || []).map(s => `<li class="mb-1">🌟 ${escapeHtml(s)}</li>`).join("");
+
+  const html = `
+    <div class="fun-card mb-4" style="border-color: #22c55e; background: #f0fdf4;">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 pb-2 border-bottom">
+        <div>
+          <span class="badge bg-primary mb-1">${escapeHtml(submission.class_title || "Devoir Corrigé")}</span>
+          <h3 class="h4 fw-bold text-dark mb-0">👩‍🏫 ${escapeHtml(ev.verdict || "Correction de Renée")}</h3>
+        </div>
+        <span class="badge ${badgeClass} fs-5 px-3 py-2 rounded-pill">⭐ ${score} / 10</span>
+      </div>
+
+      ${strengthsHtml ? `
+        <div class="mb-3">
+          <div class="small fw-bold text-uppercase text-success mb-1">💪 Ce que tu as très bien réussi :</div>
+          <ul class="small text-dark mb-0 ps-3">${strengthsHtml}</ul>
+        </div>
+      ` : ""}
+
+      <!-- 1. Corrected Text -->
+      <div class="p-3 rounded-4 bg-white border mb-3">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <span class="small fw-bold text-uppercase text-success">✅ Ton Devoir Corrigé (Prêt pour ton cours !) :</span>
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill copy-hw-text-btn" data-text="${escapeHtml(ev.corrected_text || "")}">
+              📋 Copier
+            </button>
+            <button type="button" class="btn btn-sm btn-primary rounded-pill play-fr-btn" data-fr="${escapeHtml(ev.corrected_text || "")}">
+              🔊 Écouter à voix haute
+            </button>
+          </div>
+        </div>
+        <div class="fs-5 fw-bold text-dark" style="line-height: 1.6;">${escapeHtml(ev.corrected_text || "")}</div>
+      </div>
+
+      <!-- 2. Line-by-line Mistakes Breakdown -->
+      <div class="mb-3">
+        <div class="small fw-bold text-uppercase text-danger mb-2">🔍 Mes Corrections Expliquées (Ligne par Ligne) :</div>
+        ${mistakesHtml}
+      </div>
+
+      <!-- 3. B1+ Upgraded Version -->
+      ${ev.b1_upgraded_text ? `
+        <div class="p-3 rounded-4 bg-white border mb-3" style="border-color: #c4b5fd !important;">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="small fw-bold text-uppercase" style="color: #7c3aed;">🚀 Version "Niveau B1+" (Avec connecteurs naturels pour impressionner ton prof) :</span>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill copy-hw-text-btn" data-text="${escapeHtml(ev.b1_upgraded_text)}">
+                📋 Copier
+              </button>
+              <button type="button" class="btn btn-sm btn-primary rounded-pill play-fr-btn" data-fr="${escapeHtml(ev.b1_upgraded_text)}">
+                🔊 Écouter
+              </button>
+            </div>
+          </div>
+          <div class="fs-6 fw-bold text-dark" style="line-height: 1.6;">${escapeHtml(ev.b1_upgraded_text)}</div>
+        </div>
+      ` : ""}
+
+      <!-- 4. Teacher Tip -->
+      ${ev.teacher_tip ? `
+        <div class="p-3 rounded-4 bg-warning-subtle text-dark border border-warning-subtle small">
+          <strong>🎓 Conseil de Renée pour ton prochain cours :</strong> ${escapeHtml(ev.teacher_tip)}
+        </div>
+      ` : ""}
+    </div>
+  `;
+
+  $container.html(html);
+  document.getElementById("homework-correction-result").scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function renderHomeworkHistory() {
+  const $list = $("#homework-history-list");
+  $("#hw-history-count").text(homeworkHistory.length);
+  if (!$list.length) return;
+  $list.empty();
+
+  if (homeworkHistory.length === 0) {
+    $list.html(`
+      <p class="small text-muted mb-0">
+        Aucun devoir sauvegardé pour l'instant. Écris ton devoir à gauche et clique sur <strong>✨ Corriger mon Devoir</strong> !
+      </p>
+    `);
+    return;
+  }
+
+  homeworkHistory.forEach(function (item) {
+    const score = (item.evaluation && item.evaluation.score) || "?";
+    const corrected = (item.evaluation && item.evaluation.corrected_text) || item.student_text;
+    const $card = $(`
+      <div class="p-3 rounded-4 border mb-2 bg-light">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <span class="badge bg-primary">${escapeHtml(item.class_title || "Devoir")}</span>
+          <span class="badge bg-success">⭐ ${escapeHtml(score)}/10</span>
+        </div>
+        <div class="small text-muted mb-1">${escapeHtml(item.timestamp || "")}</div>
+        <div class="small fw-bold text-dark mb-2" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+          ${escapeHtml(corrected)}
+        </div>
+        <div class="d-flex flex-wrap gap-1">
+          <button type="button" class="btn btn-sm btn-primary rounded-pill hw-view-saved-btn" data-id="${escapeHtml(item.id)}">
+            👁️ Voir la correction
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill play-fr-btn" data-fr="${escapeHtml(corrected)}" title="Écouter">
+            🔊
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-danger rounded-pill ms-auto hw-delete-saved-btn" data-id="${escapeHtml(item.id)}" title="Supprimer">
+            🗑️
+          </button>
+        </div>
+      </div>
+    `);
+    $list.append($card);
   });
 }
 
@@ -1304,9 +1602,194 @@ $(document).ready(function () {
     }
   });
 
-  // Top 3 Main Navigation Buttons
+  // Top Main Navigation Buttons
   $(document).on("click", ".fun-tab-btn", function () {
     switchTab($(this).data("tab"));
+  });
+
+  // =========================================================
+  // HOMEWORK STUDIO (MES DEVOIRS) EVENT HANDLERS
+  // =========================================================
+  $(document).on("click", "#open-last-homework-btn", function () {
+    const latestId = curriculumClasses.length ? curriculumClasses[curriculumClasses.length - 1].id : "class-11";
+    openHomeworkForClass(latestId);
+  });
+
+  $(document).on("click", ".go-homework-class-btn", function () {
+    const cid = $(this).attr("data-class-id");
+    openHomeworkForClass(cid);
+  });
+
+  $(document).on("change", "#homework-class-select", function () {
+    updateHomeworkSelectedClass();
+  });
+
+  $(document).on("click", "#speak-homework-prompt-btn", function () {
+    const promptTxt = ($("#homework-prompt-input").val() || "").trim();
+    if (promptTxt) {
+      speakFrenchPhrase(promptTxt, $(this));
+    }
+  });
+
+  // Insert French accent character at cursor position
+  $(document).on("click", ".hw-accent-btn", function () {
+    const ch = $(this).attr("data-char") || "";
+    const el = document.getElementById("homework-student-text");
+    if (!el) return;
+    const start = el.selectionStart || 0;
+    const end = el.selectionEnd || 0;
+    const val = el.value;
+    el.value = val.substring(0, start) + ch + val.substring(end);
+    el.focus();
+    el.selectionStart = el.selectionEnd = start + ch.length;
+    $(el).trigger("input");
+  });
+
+  // Insert starter phrase
+  $(document).on("click", ".hw-starter-chip", function () {
+    const phrase = $(this).attr("data-phrase") || "";
+    const $ta = $("#homework-student-text");
+    const cur = $ta.val();
+    const sep = cur && !cur.endsWith(" ") && !cur.endsWith("\n") ? " " : "";
+    $ta.val(cur + sep + phrase).focus().trigger("input");
+  });
+
+  // Live word counter
+  $(document).on("input", "#homework-student-text", function () {
+    const txt = ($(this).val() || "").trim();
+    const words = txt ? txt.split(/\s+/).length : 0;
+    $("#homework-word-count").text(`${words} mot${words > 1 ? "s" : ""}`);
+  });
+
+  // Clear homework box
+  $(document).on("click", "#hw-clear-btn", function () {
+    $("#homework-student-text").val("").trigger("input").focus();
+    $("#homework-correction-result").empty();
+  });
+
+  // Dictate a sentence by voice into the homework textarea
+  $(document).on("click", "#hw-dictate-btn", function () {
+    const $btn = $(this);
+    const isRec = $btn.attr("data-recording") === "true";
+    if (!isRec) {
+      $btn.attr("data-recording", "true")
+        .removeClass("fun-btn-blue")
+        .addClass("fun-btn-red")
+        .html('<i class="fa-solid fa-stop me-1"></i> Arrêter la dictée...');
+      activeOralBlobPromise = recordAudio();
+    } else {
+      $btn.attr("data-recording", "false")
+        .prop("disabled", true)
+        .html('<i class="fa-solid fa-spinner fa-spin me-1"></i> Transcription...');
+      stopRecording();
+      if (activeOralBlobPromise) {
+        activeOralBlobPromise.then(function (recording) {
+          let fd = new FormData();
+          fd.append("audio", recording.blob, "homework_dictation.webm");
+          fd.append("language", "fr");
+          $.ajax({
+            type: "POST",
+            url: upload_endpoint,
+            data: fd,
+            processData: false,
+            contentType: false,
+            success: function (response) {
+              $btn.prop("disabled", false)
+                .removeClass("fun-btn-red")
+                .addClass("fun-btn-blue")
+                .html("🎤 Dicter une phrase au micro");
+              if (response && response.text) {
+                const $ta = $("#homework-student-text");
+                const cur = ($ta.val() || "").trim();
+                $ta.val(cur ? cur + " " + response.text : response.text).trigger("input");
+              } else if (response && response.error) {
+                showNotification(response.error);
+              }
+            },
+            error: function () {
+              $btn.prop("disabled", false)
+                .removeClass("fun-btn-red")
+                .addClass("fun-btn-blue")
+                .html("🎤 Dicter une phrase au micro");
+            }
+          });
+        });
+      }
+    }
+  });
+
+  // Submit homework for AI correction
+  $(document).on("click", "#hw-submit-correct-btn", function () {
+    const classId = $("#homework-class-select").val() || "class-11";
+    const customPrompt = ($("#homework-prompt-input").val() || "").trim();
+    const studentText = ($("#homework-student-text").val() || "").trim();
+
+    if (!studentText) {
+      showNotification("Écris ou dicte d'abord ton devoir en français dans la zone de texte !");
+      $("#homework-student-text").focus();
+      return;
+    }
+
+    const $btn = $(this);
+    const orig = $btn.html();
+    $btn.prop("disabled", true).html('<i class="fa-solid fa-spinner fa-spin me-2"></i> Renée corrige ton devoir...');
+
+    $.post("/api/evaluate_homework", {
+      class_id: classId,
+      custom_prompt: customPrompt,
+      student_text: studentText
+    }, function (res) {
+      $btn.prop("disabled", false).html(orig);
+      if (res.error || !res.submission) {
+        showNotification(res.error || "Erreur lors de la correction du devoir.");
+        return;
+      }
+      homeworkHistory = res.homework_history || homeworkHistory;
+      renderHomeworkCorrectionResult(res.submission);
+      renderHomeworkHistory();
+    }).fail(function (xhr) {
+      $btn.prop("disabled", false).html(orig);
+      const err = (xhr.responseJSON && xhr.responseJSON.error) || "Erreur lors de la correction.";
+      showNotification(err);
+    });
+  });
+
+  // Copy corrected homework text
+  $(document).on("click", ".copy-hw-text-btn", function () {
+    const txt = $(this).attr("data-text") || "";
+    const $btn = $(this);
+    if (navigator.clipboard && txt) {
+      navigator.clipboard.writeText(txt).then(function () {
+        const orig = $btn.html();
+        $btn.html("✅ Copié !");
+        setTimeout(() => $btn.html(orig), 1500);
+      });
+    }
+  });
+
+  // View a saved homework from history
+  $(document).on("click", ".hw-view-saved-btn", function () {
+    const id = $(this).attr("data-id");
+    const item = homeworkHistory.find(h => h.id === id);
+    if (!item) return;
+    if (item.class_id) {
+      $("#homework-class-select").val(item.class_id);
+      updateHomeworkSelectedClass();
+    }
+    if (item.homework_prompt) {
+      $("#homework-prompt-input").val(item.homework_prompt);
+    }
+    $("#homework-student-text").val(item.student_text || "").trigger("input");
+    renderHomeworkCorrectionResult(item);
+  });
+
+  // Delete a saved homework from history
+  $(document).on("click", ".hw-delete-saved-btn", function () {
+    const id = $(this).attr("data-id");
+    $.post("/api/delete_homework", { submission_id: id }, function (res) {
+      homeworkHistory = res.homework_history || [];
+      renderHomeworkHistory();
+    });
   });
 
   // Level Filter Pills (All / A1 / A2 / B1)

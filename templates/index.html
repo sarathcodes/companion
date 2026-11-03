@@ -33,13 +33,16 @@
           <img src="/static/logo.png" alt="Companion" class="fun-logo" id="logo-image">
         </div>
 
-        <!-- 4 Simple, Big Navigation Pills -->
+        <!-- 5 Simple, Big Navigation Pills -->
         <nav class="fun-nav" aria-label="Menu principal">
           <button type="button" class="fun-tab-btn active" data-tab="tab-course">
             <span class="tab-emoji" aria-hidden="true">🗺️</span> Aventure A1 → B1
           </button>
           <button type="button" class="fun-tab-btn" data-tab="tab-classes">
             <span class="tab-emoji" aria-hidden="true">🎒</span> Mes Cours (1–11)
+          </button>
+          <button type="button" class="fun-tab-btn" data-tab="tab-homework">
+            <span class="tab-emoji" aria-hidden="true">✍️</span> Mes Devoirs
           </button>
           <button type="button" class="fun-tab-btn" data-tab="tab-verbs">
             <span class="tab-emoji" aria-hidden="true">⚡</span> Verbes &amp; Mots ⭐
@@ -106,9 +109,14 @@
               <h2 class="h4 fw-bold mb-1">🎒 Tes 11 Cours de Français (+ Tes Devoirs)</h2>
               <p class="mb-0 opacity-90">Choisis un cours pour voir la règle simple, écouter les mots et jouer au quiz !</p>
             </div>
-            <button type="button" id="open-import-modal-btn" class="fun-btn fun-btn-yellow">
-              <i class="fa-solid fa-plus me-1" aria-hidden="true"></i> Ajouter un nouveau cours (PDF)
-            </button>
+            <div class="d-flex flex-wrap gap-2">
+              <button type="button" id="open-last-homework-btn" class="fun-btn fun-btn-green">
+                ✍️ Écrire &amp; Corriger mon Devoir
+              </button>
+              <button type="button" id="open-import-modal-btn" class="fun-btn fun-btn-yellow">
+                <i class="fa-solid fa-plus me-1" aria-hidden="true"></i> Ajouter un nouveau cours (PDF)
+              </button>
+            </div>
           </div>
 
           <div id="classes-cards-grid" class="quest-grid"></div>
@@ -116,6 +124,110 @@
 
         <!-- Single Class Interactive Player (3 simple steps: Règle / Mots / Quiz & Micro) -->
         <div id="single-class-view" style="display: none;"></div>
+      </section>
+
+      <!-- ========================================================= -->
+      <!-- SECTION 2A: MES DEVOIRS (WRITE & CORRECT CLASS HOMEWORK)  -->
+      <!-- ========================================================= -->
+      <section id="tab-homework" class="tab-section" style="display: none;">
+        <div class="fun-card hero-banner mb-4">
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <div>
+              <span class="badge bg-warning text-dark rounded-pill px-3 py-1 fw-bold mb-2">✍️ CAHIER DE DEVOIRS &amp; CORRECTEUR IA</span>
+              <h2 class="h3 fw-bold mb-1">Écris ton Devoir et fais-le corriger par Renée !</h2>
+              <p class="mb-0 opacity-90">
+                Choisis le devoir de ton dernier cours (ou écris le sujet donné par ton professeur), rédige ton texte en français, et reçois une correction complète ligne par ligne !
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-4">
+          <!-- LEFT COLUMN: HOMEWORK EDITOR & CORRECTION -->
+          <div class="col-lg-8">
+            <div class="fun-card mb-4">
+              <!-- Step 1: Select Class or Custom Homework Topic -->
+              <div class="mb-3">
+                <label for="homework-class-select" class="form-label fw-bold fs-6">
+                  1️⃣ Pour quel cours fais-tu ce devoir ?
+                </label>
+                <select id="homework-class-select" class="form-select fun-select w-100"></select>
+              </div>
+
+              <!-- Homework Prompt Box (Editable if teacher gave a specific question) -->
+              <div class="p-3 rounded-4 mb-3" style="background: #fffbeb; border: 2px dashed #f59e0b;">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                  <span class="small fw-bold text-uppercase" style="color: #b45309;">📋 Sujet du Devoir (tu peux aussi modifier ou coller la consigne de ton prof) :</span>
+                  <button type="button" id="speak-homework-prompt-btn" class="btn btn-sm btn-warning rounded-pill fw-bold">
+                    🔊 Écouter la consigne
+                  </button>
+                </div>
+                <textarea id="homework-prompt-input" class="form-control border-0 bg-transparent fw-bold text-dark p-1" rows="2" placeholder="Écris ici le sujet de ton devoir..."></textarea>
+              </div>
+
+              <!-- Quick French Accents + Starter Phrases -->
+              <div class="mb-2 d-flex flex-wrap align-items-center gap-1">
+                <span class="small fw-bold text-muted me-1">Accents rapides :</span>
+                <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill hw-accent-btn" data-char="é">é</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill hw-accent-btn" data-char="è">è</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill hw-accent-btn" data-char="ê">ê</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill hw-accent-btn" data-char="à">à</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill hw-accent-btn" data-char="ù">ù</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill hw-accent-btn" data-char="ç">ç</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill hw-accent-btn" data-char="î">î</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill hw-accent-btn" data-char="ô">ô</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill hw-accent-btn" data-char="œ">œ</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill hw-accent-btn" data-char="É">É</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill hw-accent-btn" data-char="À">À</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill hw-accent-btn" data-char="Ç">Ç</button>
+              </div>
+
+              <!-- Clickable Starter Chips -->
+              <div id="homework-starters-bar" class="mb-3 d-flex flex-wrap gap-1"></div>
+
+              <!-- Main Homework Textarea -->
+              <div class="mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                  <label for="homework-student-text" class="form-label fw-bold fs-6 mb-0">
+                    2️⃣ Rédige ton devoir en français :
+                  </label>
+                  <span id="homework-word-count" class="badge bg-light text-dark border">0 mots</span>
+                </div>
+                <textarea id="homework-student-text" class="form-control rounded-4 p-3 fs-5" rows="7" placeholder="Écris ton devoir ici... (Exemple : Quand j'étais enfant, j'habitais en Inde avec mes parents. Tous les soirs, je jouais au cricket avec mes amis...)"></textarea>
+              </div>
+
+              <!-- Action Buttons: Dictate by Voice, Clear, Submit for Correction -->
+              <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <div class="d-flex flex-wrap gap-2">
+                  <button type="button" id="hw-dictate-btn" class="fun-btn fun-btn-blue" data-recording="false">
+                    🎤 Dicter une phrase au micro
+                  </button>
+                  <button type="button" id="hw-clear-btn" class="fun-btn fun-btn-gray">
+                    🗑️ Effacer
+                  </button>
+                </div>
+                <button type="button" id="hw-submit-correct-btn" class="fun-btn fun-btn-green btn-lg">
+                  ✨ Corriger mon Devoir !
+                </button>
+              </div>
+            </div>
+
+            <!-- AI Correction Result Container -->
+            <div id="homework-correction-result"></div>
+          </div>
+
+          <!-- RIGHT COLUMN: CLASS GRAMMAR & VOCAB HELPER + SAVED HOMEWORKS -->
+          <div class="col-lg-4">
+            <!-- Cheat-sheet for the currently selected class -->
+            <div id="homework-class-helper" class="fun-card mb-4"></div>
+
+            <!-- Past Corrected Homeworks -->
+            <div class="fun-card">
+              <h3 class="h5 fw-bold mb-3">📚 Mes Devoirs Sauvegardés (<span id="hw-history-count">0</span>)</h3>
+              <div id="homework-history-list"></div>
+            </div>
+          </div>
+        </div>
       </section>
 
       <!-- ========================================================= -->

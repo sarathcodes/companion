@@ -1378,3 +1378,118 @@ def import_new_class_from_pdf_or_text(
     new_class["date"] = class_date
     save_custom_class(new_class)
     return new_class
+
+
+HOMEWORK_FILE = os.path.join(LTM_DIR, "homework_submissions.json")
+
+
+def load_homework_submissions() -> List[Dict[str, Any]]:
+    if not os.path.exists(HOMEWORK_FILE):
+        return []
+    try:
+        with open(HOMEWORK_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return []
+
+
+def save_homework_submission(entry: Dict[str, Any]) -> List[Dict[str, Any]]:
+    os.makedirs(LTM_DIR, exist_ok=True)
+    submissions = load_homework_submissions()
+    # Put newest first
+    submissions = [s for s in submissions if s.get("id") != entry.get("id")]
+    submissions.insert(0, entry)
+    with open(HOMEWORK_FILE, "w", encoding="utf-8") as f:
+        json.dump(submissions[:50], f, ensure_ascii=False, indent=2)
+    return submissions[:50]
+
+
+def delete_homework_submission(submission_id: str) -> List[Dict[str, Any]]:
+    os.makedirs(LTM_DIR, exist_ok=True)
+    submissions = [s for s in load_homework_submissions() if s.get("id") != submission_id]
+    with open(HOMEWORK_FILE, "w", encoding="utf-8") as f:
+        json.dump(submissions, f, ensure_ascii=False, indent=2)
+    return submissions
+
+
+def evaluate_homework_submission(
+    client,
+    class_id: str,
+    custom_prompt: str,
+    student_text: str,
+) -> Dict[str, Any]:
+    """
+    Evaluate and correct a student's written homework for a specific French class (or custom assignment).
+    Saves the corrected homework in ltm/homework_submissions.json so the student can review it before class.
+    """
+    import time
+
+    cls = get_class_by_id(class_id) if class_id else None
+    class_title = f"Cours {cls['number']} ({cls['date']}) — {cls['title']}" if cls else "Devoir Libre"
+    homework_prompt = custom_prompt.strip() or (cls.get("homework", "") if cls else "Écriture libre en français")
+
+    concepts_context = ""
+    vocab_context = ""
+    if cls:
+        concepts_context = "\n".join(
+            f"- {c['title']}: {c['explanation']} ({'; '.join(c.get('rules', [])[:3])})"
+            for c in cls.get("concepts", [])
+        )
+        vocab_context = ", ".join(v["fr"] for v in cls.get("vocabulary", [])[:12])
+
+    system_instruction = (
+        "You are Renée, a warm, encouraging, yet rigorous French teacher in Geneva helping your student correct their "
+        "French class homework (target: A2/B1 DELF & FIDE).\n"
+        "Analyze the student's homework text carefully and return ONLY a valid JSON object with this exact schema:\n"
+        "{\n"
+        '  "score": <number from 1 to 10>,\n'
+        '  "verdict": "<short encouraging French title, e.g. \'Excellent devoir ! 🌟\' or \'Très bon travail, attention à l\\\'imparfait !\'>",\n'
+        '  "corrected_text": "<The student\'s full text corrected into natural, grammatically accurate French, keeping their exact personal story and ideas>",\n'
+        '  "b1_upgraded_text": "<An enriched B1 version of their text adding 2-3 natural connectors (e.g. cependant, à cette époque, d\'ailleurs, surtout, du coup) so they can impress their teacher in class>",\n'
+        '  "mistakes": [\n'
+        "    {\n"
+        '      "original": "<exact phrase with error from student text>",\n'
+        '      "correction": "<corrected French phrase>",\n'
+        '      "rule": "<clear, friendly explanation in English of the grammar/spelling/tense rule (e.g. why Imparfait vs Passé Composé, preposition de/à, gender agreement)>"\n'
+        "    }\n"
+        "  ],\n"
+        '  "strengths": ["<1st thing the student did well (in English)>", "<2nd thing the student did well>"],\n'
+        '  "teacher_tip": "<1 practical tip in English + French example for reading this homework aloud in their next class>"\n'
+        "}\n"
+        "If there are no mistakes at all, return an empty array [] for 'mistakes'."
+    )
+
+    user_input = (
+        f"Class: {class_title}\n"
+        f"Homework Assignment Prompt: {homework_prompt}\n"
+        f"Class Grammar Concepts:\n{concepts_context}\n"
+        f"Class Target Vocabulary: {vocab_context}\n\n"
+        f"Student's Written Homework:\n\"\"\"\n{student_text.strip()}\n\"\"\"\n\n"
+        "Correct this homework thoroughly and return ONLY the JSON object."
+    )
+
+    interaction = client.interactions.create(
+        model=DEFAULT_FAST_MODEL,
+        system_instruction=system_instruction,
+        input=user_input,
+        generation_config={"thinking_level": "minimal"},
+        store=False,
+    )
+    raw = _extract_interaction_text(interaction)
+    result = _parse_json_safely(raw)
+
+    submission_entry = {
+        "id": f"hw-{int(time.time() * 1000)}",
+        "timestamp": time.strftime("%d %b %Y • %H:%M"),
+        "class_id": class_id or "custom",
+        "class_title": class_title,
+        "homework_prompt": homework_prompt,
+        "student_text": student_text.strip(),
+        "evaluation": result,
+    }
+    all_submissions = save_homework_submission(submission_entry)
+    return {
+        "submission": submission_entry,
+        "history": all_submissions,
+    }
+
