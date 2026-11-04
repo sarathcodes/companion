@@ -1116,6 +1116,130 @@ CLASSES_DATA: List[Dict[str, Any]] = [
                 "target_structures": ["Imparfait (décor)", "Passé Composé (événement)", "Un jour / Soudain", "C'était..."]
             }
         ]
+    },
+    {
+        "id": "class-12",
+        "number": 12,
+        "date": "Nov 4",
+        "title": "Imparfait vs. Passé Composé (Marqueurs, 'Avoir lieu' & Récit de Vacances)",
+        "cefr_level": "B1",
+        "summary": "Deep dive into time markers for Imparfait (d'habitude, de temps en temps, le lundi) vs. Passé Composé (soudain, tout à coup, un jour, d'abord/ensuite/enfin), the expression 'avoir lieu', FIDE descriptive adjectives, and narrating your last vacation.",
+        "concepts": [
+            {
+                "title": "1. L'Imparfait : Circonstances, Descriptions, Émotions & Expressions d'Habitude",
+                "explanation": "In Class 12 (Pages 1 & 2), you learned the 3 core pillars of L'Imparfait and the exact frequency expressions that trigger it.",
+                "rules": [
+                    "1) L'heure, la météo & toutes les circonstances extérieures (le décor) : 'Il faisait beau, il y avait des animations, des décorations et des lumières de Noël.'",
+                    "2) L'âge, l'apparence physique, les vêtements, les attitudes, les sentiments ou émotions : 'Quand j'étais petit(e), j'étais très heureux/heureuse.'",
+                    "3) Les habitudes (Habits) : 'Le lundi (= every Monday), je prenais du pain avec du beurre. Le soir, nous regardions la télé.' (Compare with 'Le 8 novembre' = specific date -> Passé Composé !).",
+                    "Expressions d'habitude (Imparfait) : tous les / toutes les, d'habitude (usually), normalement, généralement, en général, rarement, parfois, de temps en temps (from time to time), toujours."
+                ],
+                "examples": [
+                    {"fr": "Je suis allé(e) au marché : il y avait beaucoup de fruits et de légumes, et il y avait des animations, des décorations et des lumières de Noël.", "en": "I went to the market (PC = action): there were lots of fruits and vegetables, and there were events, decorations, and Christmas lights (Imparfait = scene description)."},
+                    {"fr": "Le lundi, je prenais du pain avec du beurre. Le soir, nous regardions la télé.", "en": "On Mondays (every Monday), I used to have bread with butter. In the evening, we used to watch TV."},
+                    {"fr": "De temps en temps, nous partions en vacances.", "en": "From time to time, we used to go on vacation."}
+                ]
+            },
+            {
+                "title": "2. Le Passé Composé : L'Intrigue, 'Avoir lieu' & Les Marqueurs Chronologiques",
+                "explanation": "In Class 12 (Pages 3 & 4), Passé Composé describes the specific, independent actions that move the plot/story forward (l'intrigue / l'histoire).",
+                "rules": [
+                    "AVOIR LIEU = to take place : Présent ('Le Diwali a lieu le 8 novembre cette année'), Futur ('Quand aura lieu cette exposition ?'), Passé Composé ('En 2025, l'atelier de sculpture a eu lieu au mois d'octobre').",
+                    "Action interrompue (Imparfait + Passé Composé) avec 'soudain / soudainement / tout à coup' : 'Lorsque je mangeais (Imparfait), le téléphone a sonné (Passé Composé).'",
+                    "Connecteurs de séquence (Passé Composé) : D'abord / premièrement / en premier → Ensuite / après → Enfin / finalement → Tout de suite (right away) → Un jour (one day = 99% Passé Composé !).",
+                    "Contraste clé : 'Quand j'étais petit(e), je passais mes vacances en Italie' (Imparfait = habitude) vs. 'L'année dernière, j'ai passé mes vacances en Italie' (Passé Composé = événement précis).",
+                    "Rappel préposition : les cours DE français, les cours DE yoga."
+                ],
+                "examples": [
+                    {"fr": "Je suis arrivé chez moi à 16h. J'ai mangé et j'ai pris une douche. J'ai vu mon frère et on a joué à un jeu vidéo.", "en": "I arrived home at 4 PM. I ate and took a shower. I saw my brother and we played a video game. (Series of completed actions = PC)"},
+                    {"fr": "Lorsque je mangeais, soudain le téléphone a sonné.", "en": "While I was eating (Imparfait), suddenly the phone rang (Passé Composé)."},
+                    {"fr": "L'année dernière, j'ai passé mes vacances en Italie.", "en": "Last year, I spent my vacation in Italy."}
+                ]
+            },
+            {
+                "title": "3. Objectif Examen FIDE : Adjectifs Indispensables pour Décrire (Vacances & Lieux)",
+                "explanation": "Your teacher wrote a special boxed note on Page 2: 'Learn adjectives as much as possible for FIDE exam!' Using varied adjectives with 'c'était + adjectif masculin' or 'il y avait...' boosts your FIDE & B1 score immediately.",
+                "rules": [
+                    "Pour décrire un lieu / un paysage : magnifique (magnificent), splendide, pittoresque (picturesque), paisible / calme (peaceful), animé(e) (lively/bustling), bondé(e) (crowded).",
+                    "Pour décrire la météo & l'ambiance : ensoleillé(e) (sunny), doux / douce (mild), chaleureux / chaleureuse (warm/welcoming), accueillant(e) (welcoming), féerique (magical).",
+                    "Pour décrire la nourriture & les souvenirs : délicieux / délicieuse, savoureux / savoureuse (tasty), inoubliable (unforgettable), reposant(e) (relaxing), enrichissant(e) (enriching)."
+                ],
+                "examples": [
+                    {"fr": "Le paysage était magnifique et l'ambiance était très chaleureuse et paisible.", "en": "The scenery was magnificent and the atmosphere was very warm and peaceful."}
+                ]
+            }
+        ],
+        "vocabulary": [
+            {"fr": "à ce moment-là / ce jour-là", "en": "at that moment / on that day", "note": "Class 12 Page 1 time markers"},
+            {"fr": "avoir lieu (a eu lieu / aura lieu)", "en": "to take place (took place / will take place)", "note": "Le Diwali a lieu le 8 novembre"},
+            {"fr": "de temps en temps", "en": "from time to time", "note": "Imparfait habit marker"},
+            {"fr": "d'habitude / en général", "en": "usually / in general", "note": "Imparfait habit marker"},
+            {"fr": "soudain / tout à coup", "en": "suddenly / all of a sudden", "note": "Triggers Passé Composé!"},
+            {"fr": "tout de suite", "en": "right away / immediately", "note": "Action immédiate"},
+            {"fr": "d'abord ... ensuite ... enfin", "en": "first ... then ... finally", "note": "Chronological story connectors"},
+            {"fr": "des animations et des lumières", "en": "events/entertainment and lights", "note": "Il y avait des animations au marché"},
+            {"fr": "les cours de français / de yoga", "en": "French classes / yoga classes", "note": "cours DE + matière"},
+            {"fr": "inoubliable / magnifique / paisible", "en": "unforgettable / magnificent / peaceful", "note": "FIDE exam adjectives"},
+            {"fr": "chaleureux (chaleureuse) / animé(e)", "en": "warm & welcoming / lively", "note": "FIDE exam adjectives"},
+            {"fr": "reposant(e) / délicieux (délicieuse)", "en": "relaxing / delicious", "note": "Des vacances reposantes"}
+        ],
+        "homework": "Devoir de la Classe 12 : Décrivez vos dernières vacances en combinant le Passé Composé (où vous êtes allé, ce que vous avez fait : d'abord, ensuite, enfin, un jour...) et l'Imparfait (la météo, le paysage, ce qu'il y avait, vos émotions et des adjectifs riches pour le FIDE).",
+        "written_exercises": [
+            {
+                "id": "c12-ex1",
+                "question": "Imparfait (habitude) ou Passé Composé (événement précis) ? '1) Quand j'étais petit, je (passer) ___ mes vacances en Italie. 2) L'année dernière, je (passer) ___ mes vacances en Italie.'",
+                "hint": "Page 4 comparison: childhood habit vs. last year!",
+                "answer": "passais, ai passé",
+                "accepted_answers": ["passais, ai passé", "passais, j'ai passé"],
+                "explanation": "'Quand j'étais petit' = childhood habit → Imparfait ('je passais'). 'L'année dernière' = specific completed trip → Passé Composé ('j'ai passé')."
+            },
+            {
+                "id": "c12-ex2",
+                "question": "Action en cours + Interruption (Page 4) : 'Lorsque je (manger) ___, soudain le téléphone (sonner) ___.'",
+                "hint": "Ongoing action = Imparfait; sudden phone ring = Passé Composé.",
+                "answer": "mangeais, a sonné",
+                "accepted_answers": ["mangeais, a sonné"],
+                "explanation": "'Lorsque je mangeais' (ongoing background action in Imparfait) was interrupted by 'le téléphone a sonné' (Passé Composé)."
+            },
+            {
+                "id": "c12-ex3",
+                "question": "Complétez avec l'expression 'avoir lieu' (Page 3) : '1) Le Diwali ___ le 8 novembre cette année (présent). 2) En 2025, l'atelier de sculpture ___ en octobre (passé composé).'",
+                "hint": "avoir lieu -> il a lieu (présent) / il a eu lieu (passé composé)",
+                "answer": "a lieu, a eu lieu",
+                "accepted_answers": ["a lieu, a eu lieu"],
+                "explanation": "'Avoir lieu' means 'to take place'. In present: 'a lieu'. In Passé Composé: 'a eu lieu'."
+            },
+            {
+                "id": "c12-ex4",
+                "question": "Complétez la description du marché (Page 1) : 'Hier, je (aller) ___ au marché : il y (avoir) ___ beaucoup de fruits et des lumières de Noël.'",
+                "hint": "Going to the market = Passé Composé (être); describing what there was = Imparfait (il y avait).",
+                "answer": "suis allé, avait",
+                "accepted_answers": ["suis allé, avait", "suis allée, avait", "suis allé, il y avait"],
+                "explanation": "'Je suis allé(e)' is the main action (Passé Composé), and 'il y avait' sets the scene/description (Imparfait)."
+            },
+            {
+                "id": "c12-ex5",
+                "question": "Traduisez l'expression d'habitude (Page 2) : '___ (From time to time), nous partions en vacances.'",
+                "hint": "De ... en ...",
+                "answer": "De temps en temps",
+                "accepted_answers": ["De temps en temps", "de temps en temps"],
+                "explanation": "'De temps en temps' means 'from time to time' and is followed by L'Imparfait for past habits."
+            }
+        ],
+        "speaking_prompts": [
+            {
+                "id": "c12-sp1",
+                "title": "Devoir Classe 12 : Décrivez vos dernières vacances (Passé Composé + Imparfait)",
+                "prompt_fr": "Décrivez vos dernières vacances ! Où êtes-vous allé(e) et avec qui (Passé Composé) ? Comment étaient la météo, l'hôtel et le paysage (Imparfait + adjectifs FIDE : magnifique, paisible, chaleureux, délicieux) ? Racontez ce que vous avez fait avec 'd'abord', 'ensuite', 'un jour' et 'enfin' !",
+                "target_structures": ["L'année dernière / Cet été, nous sommes allés...", "Il faisait beau / Il y avait...", "C'était magnifique / paisible / inoubliable", "D'abord... ensuite... enfin", "Un jour / Soudain"]
+            },
+            {
+                "id": "c12-sp2",
+                "title": "Une sortie au marché ou un événement qui a eu lieu à Genève",
+                "prompt_fr": "Racontez une sortie récente au marché ou une fête qui a eu lieu à Genève (comme sur la Page 1 et 3 du cahier). Utilisez 'avoir lieu', 'il y avait' (Imparfait) pour décrire les décorations et l'ambiance, et le Passé Composé pour vos actions !",
+                "target_structures": ["avoir lieu (a eu lieu)", "Je suis allé(e)...", "Il y avait beaucoup de...", "des animations / des lumières", "C'était très animé"]
+            }
+        ]
     }
 ]
 

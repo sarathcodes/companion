@@ -34,7 +34,7 @@ let lastDictLookupEntry = null;
 
 // Homework Studio State
 let homeworkHistory = [];
-let selectedHomeworkClassId = "class-11";
+let selectedHomeworkClassId = "class-12";
 let homeworkInteractiveChatHistory = [];
 let lastHomeworkCorrectedText = "";
 let lastHomeworkB1Text = "";
@@ -745,7 +745,7 @@ function renderSingleClassStep() {
     <div class="fun-card">
       <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 pb-3 border-bottom">
         <button type="button" id="back-to-classes-btn" class="fun-btn fun-btn-gray py-1 px-3">
-          ⬅️ Tous les Cours (1–11)
+          ⬅️ Tous les Cours (1–12)
         </button>
         <h2 class="h4 fw-bold mb-0">🎒 Cours ${escapeHtml(cls.number)} : ${escapeHtml(cls.title)}</h2>
         <div class="d-flex flex-wrap gap-2">
