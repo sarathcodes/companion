@@ -1493,3 +1493,178 @@ def evaluate_homework_submission(
         "history": all_submissions,
     }
 
+
+SAVED_HOMEWORKS_DIR = os.path.join(LTM_DIR, "saved_homeworks")
+
+
+def interactive_improve_homework_from_english(
+    client,
+    class_id: str,
+    custom_prompt: str,
+    current_french_text: str,
+    english_instructions: str,
+    chat_history: Optional[List[Dict[str, str]]] = None,
+) -> Dict[str, Any]:
+    """
+    Interactive Homework Co-Writer & Improver:
+    The student types in English (or French/mixed) what personal details, ideas, or changes they want to include
+    in their homework. Renée builds or updates their French homework using the target class grammar & vocabulary,
+    and explains every sentence so the student learns and can read it confidently in class.
+    """
+    cls = get_class_by_id(class_id) if class_id else None
+    class_title = f"Cours {cls['number']} ({cls['date']}) — {cls['title']}" if cls else "Devoir de Français"
+    homework_prompt = custom_prompt.strip() or (cls.get("homework", "") if cls else "Écriture en français")
+
+    concepts_context = ""
+    vocab_context = ""
+    if cls:
+        concepts_context = "\n".join(
+            f"- {c['title']}: {c['explanation']} ({'; '.join(c.get('rules', [])[:3])})"
+            for c in cls.get("concepts", [])
+        )
+        vocab_context = ", ".join(v["fr"] for v in cls.get("vocabulary", [])[:15])
+
+    history_str = ""
+    if chat_history:
+        history_str = "\nPrevious interactive requests from student:\n" + "\n".join(
+            f"- Student requested: {h.get('user_en', '')}" for h in chat_history[-5:]
+        )
+
+    system_instruction = (
+        "You are Renée, an interactive French homework co-writer and DELF B1 / FIDE coach in Geneva.\n"
+        "The student is telling you in ENGLISH (or a mix of English and French) what personal memories, ideas, or "
+        "changes they want to include in their French class homework.\n"
+        "Your job is to craft or update their homework in natural, authentic French that uses the target grammar and "
+        "vocabulary from their class, while keeping it 100% faithful to their personal story.\n"
+        "Return ONLY a valid JSON object with this exact schema:\n"
+        "{\n"
+        '  "coach_reply_en": "<Warm, encouraging 1-2 sentence response in English explaining how you wove their ideas into the French text and which grammar rules you applied>",\n'
+        '  "improved_french_text": "<Clear, natural A2/B1 French homework text incorporating the existing draft + the student\'s new English instructions>",\n'
+        '  "b1_plus_french_text": "<An enriched B1+ version of the same text with smooth connectors like \'à cette époque\', \'cependant\', \'d\\\'ailleurs\', \'surtout\', \'du coup\'>",\n'
+        '  "key_phrases_added": [\n'
+        '    {"en": "<English idea the student asked for>", "fr": "<How we say it in French in the text>"}\n'
+        "  ],\n"
+        '  "sentence_breakdown": [\n'
+        "    {\n"
+        '      "fr": "<French sentence from improved_french_text>",\n'
+        '      "en": "<English meaning>",\n'
+        '      "grammar_note": "<Short note in English explaining the verb tense or structure used, e.g. \'Imparfait (vivions) because it describes where you used to live\'>"\n'
+        "    }\n"
+        "  ],\n"
+        '  "follow_up_suggestions_en": [\n'
+        '    "<Short English suggestion 1 the student can click to add more detail>",\n'
+        '    "<Short English suggestion 2 the student can click to add a specific event>",\n'
+        '    "Make it shorter and easier to pronounce in class"\n'
+        "  ]\n"
+        "}"
+    )
+
+    user_input = (
+        f"Class: {class_title}\n"
+        f"Homework Assignment Prompt: {homework_prompt}\n"
+        f"Target Class Grammar:\n{concepts_context}\n"
+        f"Target Class Vocabulary: {vocab_context}\n"
+        f"{history_str}\n\n"
+        f"Current French Draft in Editor (may be empty if starting fresh):\n\"\"\"\n{current_french_text.strip()}\n\"\"\"\n\n"
+        f"Student's New Request in English (what to include or change):\n\"\"\"\n{english_instructions.strip()}\n\"\"\"\n\n"
+        "Return ONLY the JSON object."
+    )
+
+    interaction = client.interactions.create(
+        model=DEFAULT_FAST_MODEL,
+        system_instruction=system_instruction,
+        input=user_input,
+        generation_config={"thinking_level": "minimal"},
+        store=False,
+    )
+    raw = _extract_interaction_text(interaction)
+    return _parse_json_safely(raw)
+
+
+def save_homework_to_disk(
+    class_id: str,
+    custom_prompt: str,
+    student_text: str,
+    corrected_text: str = "",
+    b1_upgraded_text: str = "",
+    english_notes: str = "",
+) -> Dict[str, Any]:
+    """
+    Save the student's homework both into ltm/homework_submissions.json AND as a standalone
+    Markdown (.md) and Text (.txt) file inside ltm/saved_homeworks/ on disk.
+    """
+    import time
+
+    os.makedirs(SAVED_HOMEWORKS_DIR, exist_ok=True)
+    cls = get_class_by_id(class_id) if class_id else None
+    class_title = f"Cours {cls['number']} ({cls['date']}) — {cls['title']}" if cls else "Devoir Libre"
+    homework_prompt = custom_prompt.strip() or (cls.get("homework", "") if cls else "Écriture libre en français")
+    timestamp_display = time.strftime("%d %b %Y • %H:%M")
+    file_stamp = time.strftime("%Y-%m-%d_%H%M%S")
+    safe_class_slug = re.sub(r"[^a-zA-Z0-9_-]+", "_", class_id or "devoir")
+    filename = f"devoir_{safe_class_slug}_{file_stamp}.md"
+    file_path = os.path.join(SAVED_HOMEWORKS_DIR, filename)
+
+    final_corrected = corrected_text.strip() or student_text.strip()
+
+    md_lines = [
+        f"# ✍️ {class_title}",
+        f"**Date :** {timestamp_display}",
+        f"**Consigne :** {homework_prompt}",
+        "",
+        "## 🇫🇷 Mon Texte en Français",
+        student_text.strip() or "(Vide)",
+        "",
+    ]
+    if corrected_text.strip() and corrected_text.strip() != student_text.strip():
+        md_lines.extend([
+            "## ✅ Version Corrigée / Améliorée",
+            corrected_text.strip(),
+            "",
+        ])
+    if b1_upgraded_text.strip():
+        md_lines.extend([
+            "## 🚀 Version Niveau B1+ (Avec Connecteurs)",
+            b1_upgraded_text.strip(),
+            "",
+        ])
+    if english_notes.strip():
+        md_lines.extend([
+            "## 🇬🇧 Mes Idées en Anglais (What I included)",
+            english_notes.strip(),
+            "",
+        ])
+
+    md_content = "\n".join(md_lines)
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(md_content)
+
+    # Also save/update in homework_submissions.json so it shows in the right-hand sidebar history
+    submission_entry = {
+        "id": f"hw-{int(time.time() * 1000)}",
+        "timestamp": timestamp_display,
+        "class_id": class_id or "custom",
+        "class_title": class_title,
+        "homework_prompt": homework_prompt,
+        "student_text": student_text.strip() or final_corrected,
+        "saved_file_path": file_path,
+        "evaluation": {
+            "score": 10 if corrected_text.strip() else 8,
+            "verdict": "Devoir sauvegardé sur le disque 💾",
+            "corrected_text": final_corrected,
+            "b1_upgraded_text": b1_upgraded_text.strip(),
+            "mistakes": [],
+            "strengths": ["Saved to disk at " + file_path],
+            "teacher_tip": "Relis ton texte à voix haute avec le bouton 🔊 Écouter avant ton prochain cours !",
+        },
+    }
+    all_submissions = save_homework_submission(submission_entry)
+    return {
+        "submission": submission_entry,
+        "history": all_submissions,
+        "file_path": file_path,
+        "filename": filename,
+        "file_content": md_content,
+    }
+
+

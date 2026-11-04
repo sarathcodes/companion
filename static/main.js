@@ -35,6 +35,9 @@ let lastDictLookupEntry = null;
 // Homework Studio State
 let homeworkHistory = [];
 let selectedHomeworkClassId = "class-11";
+let homeworkInteractiveChatHistory = [];
+let lastHomeworkCorrectedText = "";
+let lastHomeworkB1Text = "";
 
 const QUEST_EMOJIS = {
   "a1-m1": "👨‍👩‍👦",
@@ -938,6 +941,8 @@ function renderHomeworkCorrectionResult(submission) {
   }
 
   const ev = submission.evaluation;
+  lastHomeworkCorrectedText = ev.corrected_text || "";
+  lastHomeworkB1Text = ev.b1_upgraded_text || "";
   const score = ev.score || 0;
   const badgeClass = score >= 8 ? "bg-success" : (score >= 6 ? "bg-warning text-dark" : "bg-danger");
 
@@ -979,7 +984,12 @@ function renderHomeworkCorrectionResult(submission) {
           <span class="badge bg-primary mb-1">${escapeHtml(submission.class_title || "Devoir Corrigé")}</span>
           <h3 class="h4 fw-bold text-dark mb-0">👩‍🏫 ${escapeHtml(ev.verdict || "Correction de Renée")}</h3>
         </div>
-        <span class="badge ${badgeClass} fs-5 px-3 py-2 rounded-pill">⭐ ${score} / 10</span>
+        <div class="d-flex align-items-center gap-2">
+          <button type="button" class="btn btn-sm btn-warning rounded-pill fw-bold save-corrected-disk-btn">
+            💾 Sauvegarder sur le disque
+          </button>
+          <span class="badge ${badgeClass} fs-5 px-3 py-2 rounded-pill">⭐ ${score} / 10</span>
+        </div>
       </div>
 
       ${strengthsHtml ? `
@@ -991,9 +1001,12 @@ function renderHomeworkCorrectionResult(submission) {
 
       <!-- 1. Corrected Text -->
       <div class="p-3 rounded-4 bg-white border mb-3">
-        <div class="d-flex justify-content-between align-items-center mb-2">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
           <span class="small fw-bold text-uppercase text-success">✅ Ton Devoir Corrigé (Prêt pour ton cours !) :</span>
-          <div class="d-flex gap-2">
+          <div class="d-flex flex-wrap gap-2">
+            <button type="button" class="btn btn-sm btn-outline-success rounded-pill use-coauthor-text-btn" data-text="${escapeHtml(ev.corrected_text || "")}">
+              📥 Mettre dans mon cahier
+            </button>
             <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill copy-hw-text-btn" data-text="${escapeHtml(ev.corrected_text || "")}">
               📋 Copier
             </button>
@@ -1014,9 +1027,12 @@ function renderHomeworkCorrectionResult(submission) {
       <!-- 3. B1+ Upgraded Version -->
       ${ev.b1_upgraded_text ? `
         <div class="p-3 rounded-4 bg-white border mb-3" style="border-color: #c4b5fd !important;">
-          <div class="d-flex justify-content-between align-items-center mb-2">
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
             <span class="small fw-bold text-uppercase" style="color: #7c3aed;">🚀 Version "Niveau B1+" (Avec connecteurs naturels pour impressionner ton prof) :</span>
-            <div class="d-flex gap-2">
+            <div class="d-flex flex-wrap gap-2">
+              <button type="button" class="btn btn-sm btn-outline-primary rounded-pill use-coauthor-text-btn" data-text="${escapeHtml(ev.b1_upgraded_text)}">
+                📥 Mettre dans mon cahier
+              </button>
               <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill copy-hw-text-btn" data-text="${escapeHtml(ev.b1_upgraded_text)}">
                 📋 Copier
               </button>
@@ -1040,6 +1056,178 @@ function renderHomeworkCorrectionResult(submission) {
 
   $container.html(html);
   document.getElementById("homework-correction-result").scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function renderInteractiveCoauthorResult(res) {
+  const $box = $("#hw-interactive-coauthor-result");
+  if (!res) {
+    $box.empty();
+    return;
+  }
+
+  lastHomeworkCorrectedText = res.improved_french_text || "";
+  lastHomeworkB1Text = res.b1_plus_french_text || "";
+
+  let phrasesHtml = "";
+  if (res.key_phrases_added && res.key_phrases_added.length > 0) {
+    phrasesHtml = `
+      <div class="mb-3">
+        <div class="small fw-bold text-uppercase text-muted mb-1">🇬🇧 ➡️ 🇫🇷 Your English ideas translated into French:</div>
+        <div class="d-flex flex-wrap gap-2">
+          ${res.key_phrases_added.map(p => `
+            <span class="badge bg-white text-dark border p-2 rounded-3">
+              <span class="text-muted">${escapeHtml(p.en)}</span> ➡️ <strong class="text-primary">${escapeHtml(p.fr)}</strong>
+            </span>
+          `).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  let breakdownHtml = "";
+  if (res.sentence_breakdown && res.sentence_breakdown.length > 0) {
+    breakdownHtml = `
+      <div class="mb-3">
+        <div class="small fw-bold text-uppercase text-muted mb-2">📖 Sentence-by-Sentence Breakdown (Understand every line):</div>
+        ${res.sentence_breakdown.map(s => `
+          <div class="p-2 rounded-3 bg-white border mb-2 d-flex justify-content-between align-items-center gap-2">
+            <div class="small">
+              <div class="fw-bold text-primary fs-6">${escapeHtml(s.fr)}</div>
+              <div class="text-dark">🇬🇧 ${escapeHtml(s.en)}</div>
+              ${s.grammar_note ? `<div class="text-muted">💡 <em>${escapeHtml(s.grammar_note)}</em></div>` : ""}
+            </div>
+            <button type="button" class="sound-circle-btn play-fr-btn" style="width: 32px; height: 32px;" data-fr="${escapeHtml(s.fr)}" title="Écouter">
+              <i class="fa-solid fa-volume-high"></i>
+            </button>
+          </div>
+        `).join("")}
+      </div>
+    `;
+  }
+
+  let followUpHtml = "";
+  if (res.follow_up_suggestions_en && res.follow_up_suggestions_en.length > 0) {
+    followUpHtml = `
+      <div class="mt-2 pt-2 border-top">
+        <div class="small fw-bold text-muted mb-1">💬 Want to add or change more? Click an idea or type in the English box above:</div>
+        <div class="d-flex flex-wrap gap-1">
+          ${res.follow_up_suggestions_en.map(sug => `
+            <button type="button" class="btn btn-sm btn-outline-primary rounded-pill hw-en-idea-chip" data-idea="${escapeHtml(sug)}">
+              + ${escapeHtml(sug)}
+            </button>
+          `).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  $box.html(`
+    <div class="p-3 rounded-4 bg-white border" style="border-color: #a78bfa !important;">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2 pb-2 border-bottom">
+        <div class="fw-bold text-dark">
+          👩‍🏫 <strong>Renée :</strong> ${escapeHtml(res.coach_reply_en || "Here is your tailored French homework based on your English ideas!")}
+        </div>
+        <button type="button" class="btn btn-sm btn-warning rounded-pill fw-bold save-corrected-disk-btn">
+          💾 Save to Disk
+        </button>
+      </div>
+
+      ${phrasesHtml}
+
+      <!-- 1. Improved Natural French Version -->
+      <div class="p-3 rounded-4 mb-3" style="background: #f0fdf4; border: 2px solid #22c55e;">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+          <span class="small fw-bold text-uppercase text-success">🇫🇷 Version Claire &amp; Naturelle (A2/B1) :</span>
+          <div class="d-flex flex-wrap gap-1">
+            <button type="button" class="btn btn-sm btn-success rounded-pill fw-bold use-coauthor-text-btn" data-text="${escapeHtml(res.improved_french_text || "")}">
+              📥 Put in My Homework Editor
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill copy-hw-text-btn" data-text="${escapeHtml(res.improved_french_text || "")}">
+              📋 Copy
+            </button>
+            <button type="button" class="btn btn-sm btn-primary rounded-pill play-fr-btn" data-fr="${escapeHtml(res.improved_french_text || "")}">
+              🔊 Listen
+            </button>
+          </div>
+        </div>
+        <div class="fs-5 fw-bold text-dark" style="line-height: 1.6;">${escapeHtml(res.improved_french_text || "")}</div>
+      </div>
+
+      <!-- 2. Enriched B1+ Version -->
+      ${res.b1_plus_french_text ? `
+        <div class="p-3 rounded-4 mb-3" style="background: #faf5ff; border: 2px solid #c4b5fd;">
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+            <span class="small fw-bold text-uppercase" style="color: #7c3aed;">🚀 Version Niveau B1+ (With Connectors) :</span>
+            <div class="d-flex flex-wrap gap-1">
+              <button type="button" class="btn btn-sm btn-primary rounded-pill fw-bold use-coauthor-text-btn" data-text="${escapeHtml(res.b1_plus_french_text)}">
+                📥 Put in My Homework Editor
+              </button>
+              <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill copy-hw-text-btn" data-text="${escapeHtml(res.b1_plus_french_text)}">
+                📋 Copy
+              </button>
+              <button type="button" class="btn btn-sm btn-primary rounded-pill play-fr-btn" data-fr="${escapeHtml(res.b1_plus_french_text)}">
+                🔊 Listen
+              </button>
+            </div>
+          </div>
+          <div class="fs-6 fw-bold text-dark" style="line-height: 1.6;">${escapeHtml(res.b1_plus_french_text)}</div>
+        </div>
+      ` : ""}
+
+      ${breakdownHtml}
+      ${followUpHtml}
+    </div>
+  `);
+}
+
+function triggerHomeworkDiskSave() {
+  const classId = $("#homework-class-select").val() || "class-11";
+  const customPrompt = ($("#homework-prompt-input").val() || "").trim();
+  const studentText = ($("#homework-student-text").val() || "").trim();
+  const englishNotes = ($("#hw-english-instructions").val() || "").trim();
+
+  if (!studentText && !lastHomeworkCorrectedText) {
+    showNotification("Écris ou génère d'abord ton devoir avant de le sauvegarder sur le disque !");
+    return;
+  }
+
+  const $btn = $("#hw-save-disk-btn");
+  const orig = $btn.html();
+  $btn.prop("disabled", true).html('<i class="fa-solid fa-spinner fa-spin me-1"></i> Sauvegarde...');
+
+  $.post("/api/save_homework_disk", {
+    class_id: classId,
+    custom_prompt: customPrompt,
+    student_text: studentText || lastHomeworkCorrectedText,
+    corrected_text: lastHomeworkCorrectedText || studentText,
+    b1_upgraded_text: lastHomeworkB1Text,
+    english_notes: englishNotes
+  }, function (res) {
+    $btn.prop("disabled", false).html(orig);
+    if (res.error) {
+      showNotification(res.error);
+      return;
+    }
+    homeworkHistory = res.homework_history || homeworkHistory;
+    renderHomeworkHistory();
+
+    $("#hw-disk-save-status").html(`
+      <div class="p-3 rounded-4 d-flex flex-wrap justify-content-between align-items-center gap-2" style="background: #dcfce7; border: 2px solid #22c55e; color: #14532d;">
+        <div>
+          <div class="fw-bold">💾 Devoir sauvegardé sur ton Mac !</div>
+          <div class="small font-monospace">${escapeHtml(res.file_path || "")}</div>
+        </div>
+        <button type="button" class="btn btn-sm btn-success rounded-pill fw-bold download-hw-md-btn"
+          data-filename="${escapeHtml(res.filename || "devoir.md")}"
+          data-content="${escapeHtml(res.file_content || "")}">
+          📥 Télécharger une copie (.md)
+        </button>
+      </div>
+    `);
+  }).fail(function () {
+    $btn.prop("disabled", false).html(orig);
+    showNotification("Erreur lors de la sauvegarde sur le disque.");
+  });
 }
 
 function renderHomeworkHistory() {
@@ -1680,6 +1868,99 @@ $(document).ready(function () {
   $(document).on("click", "#hw-clear-btn", function () {
     $("#homework-student-text").val("").trigger("input").focus();
     $("#homework-correction-result").empty();
+    $("#hw-interactive-coauthor-result").empty();
+    $("#hw-disk-save-status").empty();
+    lastHomeworkCorrectedText = "";
+    lastHomeworkB1Text = "";
+  });
+
+  // Click an English idea chip to insert into #hw-english-instructions
+  $(document).on("click", ".hw-en-idea-chip", function () {
+    const idea = $(this).attr("data-idea") || "";
+    const $en = $("#hw-english-instructions");
+    const cur = ($en.val() || "").trim();
+    $en.val(cur ? cur + " " + idea : idea).focus();
+  });
+
+  // Interactive English -> French Homework Builder & Improver
+  $(document).on("click", "#hw-interactive-improve-btn", function () {
+    const classId = $("#homework-class-select").val() || "class-11";
+    const customPrompt = ($("#homework-prompt-input").val() || "").trim();
+    const currentFrench = ($("#homework-student-text").val() || "").trim();
+    const englishInstructions = ($("#hw-english-instructions").val() || "").trim();
+
+    if (!englishInstructions) {
+      showNotification("Type in English what you want to include or change in your homework!");
+      $("#hw-english-instructions").focus();
+      return;
+    }
+
+    const $btn = $(this);
+    const orig = $btn.html();
+    $btn.prop("disabled", true).html('<i class="fa-solid fa-spinner fa-spin me-1"></i> Building French version...');
+
+    $.post("/api/interactive_improve_homework", {
+      class_id: classId,
+      custom_prompt: customPrompt,
+      current_french_text: currentFrench,
+      english_instructions: englishInstructions,
+      chat_history: JSON.stringify(homeworkInteractiveChatHistory)
+    }, function (res) {
+      $btn.prop("disabled", false).html(orig);
+      if (res.error || !res.result) {
+        showNotification(res.error || "Could not generate improved homework.");
+        return;
+      }
+      homeworkInteractiveChatHistory.push({ user_en: englishInstructions });
+      renderInteractiveCoauthorResult(res.result);
+      // If the student's French editor was empty, automatically populate it with the new French draft!
+      if (!currentFrench && res.result.improved_french_text) {
+        $("#homework-student-text").val(res.result.improved_french_text).trigger("input");
+      }
+    }).fail(function (xhr) {
+      $btn.prop("disabled", false).html(orig);
+      const err = (xhr.responseJSON && xhr.responseJSON.error) || "Error generating homework.";
+      showNotification(err);
+    });
+  });
+
+  // Allow pressing Ctrl+Enter or Cmd+Enter in #hw-english-instructions
+  $(document).on("keydown", "#hw-english-instructions", function (e) {
+    if ((e.metaKey || e.ctrlKey || !e.shiftKey) && e.key === "Enter") {
+      e.preventDefault();
+      $("#hw-interactive-improve-btn").click();
+    }
+  });
+
+  // Put generated/corrected French text directly into the main homework editor
+  $(document).on("click", ".use-coauthor-text-btn", function () {
+    const txt = $(this).attr("data-text") || "";
+    if (!txt) return;
+    $("#homework-student-text").val(txt).trigger("input").focus();
+    const $btn = $(this);
+    const orig = $btn.html();
+    $btn.html("✅ Mis dans ton cahier !");
+    setTimeout(() => $btn.html(orig), 1500);
+  });
+
+  // Save homework to disk (both ltm/saved_homeworks/*.md and ltm/homework_submissions.json)
+  $(document).on("click", "#hw-save-disk-btn, .save-corrected-disk-btn", function () {
+    triggerHomeworkDiskSave();
+  });
+
+  // Download .md copy in browser
+  $(document).on("click", ".download-hw-md-btn", function () {
+    const filename = $(this).attr("data-filename") || "devoir_francais.md";
+    const content = $(this).attr("data-content") || "";
+    const blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   });
 
   // Dictate a sentence by voice into the homework textarea

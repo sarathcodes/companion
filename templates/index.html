@@ -173,6 +173,32 @@
                 <textarea id="homework-prompt-input" class="form-control border-0 bg-transparent fw-bold text-dark p-1" rows="2" placeholder="Écris ici le sujet de ton devoir..."></textarea>
               </div>
 
+              <!-- INTERACTIVE ENGLISH -> FRENCH HOMEWORK BUILDER & IMPROVER -->
+              <div class="p-3 rounded-4 mb-3" style="background: #f5f3ff; border: 2px solid #c4b5fd;">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                  <div>
+                    <span class="badge rounded-pill mb-1" style="background: #7c3aed;">🪄 INTERACTIVE CO-WRITER (ENGLISH ➡️ FRENCH)</span>
+                    <div class="fw-bold text-dark">
+                      Tell Renée in English what you want to include or improve in your homework!
+                    </div>
+                  </div>
+                </div>
+                <div class="mb-2 d-flex flex-wrap gap-1">
+                  <span class="small fw-bold text-muted me-1">Quick ideas:</span>
+                  <button type="button" class="btn btn-sm btn-light border rounded-pill hw-en-idea-chip" data-idea="Include where I lived as a child, what our house was like, and who took care of me.">+ Childhood home &amp; family</button>
+                  <button type="button" class="btn btn-sm btn-light border rounded-pill hw-en-idea-chip" data-idea="Include what sports or games I used to play with my friends every evening after school.">+ After-school games (Imparfait)</button>
+                  <button type="button" class="btn btn-sm btn-light border rounded-pill hw-en-idea-chip" data-idea="Add one specific memorable event that happened one day (using Passé Composé).">+ Special memory (Passé Composé)</button>
+                  <button type="button" class="btn btn-sm btn-light border rounded-pill hw-en-idea-chip" data-idea="Make my current French draft sound more natural and add B1 connectors.">+ Polish my current draft</button>
+                </div>
+                <div class="d-flex flex-wrap gap-2">
+                  <textarea id="hw-english-instructions" class="form-control rounded-4" rows="2" placeholder="Type in English what to include or change (e.g. 'Include that I grew up in India, my mother used to cook dosa on Sundays, I used to ride my bike to school, and one day it rained heavily...')"></textarea>
+                  <button type="button" id="hw-interactive-improve-btn" class="fun-btn fun-btn-purple text-nowrap">
+                    🪄 Build / Improve Homework
+                  </button>
+                </div>
+                <div id="hw-interactive-coauthor-result" class="mt-3"></div>
+              </div>
+
               <!-- Quick French Accents + Starter Phrases -->
               <div class="mb-2 d-flex flex-wrap align-items-center gap-1">
                 <span class="small fw-bold text-muted me-1">Accents rapides :</span>
@@ -204,11 +230,14 @@
                 <textarea id="homework-student-text" class="form-control rounded-4 p-3 fs-5" rows="7" placeholder="Écris ton devoir ici... (Exemple : Quand j'étais enfant, j'habitais en Inde avec mes parents. Tous les soirs, je jouais au cricket avec mes amis...)"></textarea>
               </div>
 
-              <!-- Action Buttons: Dictate by Voice, Clear, Submit for Correction -->
+              <!-- Action Buttons: Dictate by Voice, Save to Disk, Clear, Submit for Correction -->
               <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
                 <div class="d-flex flex-wrap gap-2">
                   <button type="button" id="hw-dictate-btn" class="fun-btn fun-btn-blue" data-recording="false">
-                    🎤 Dicter une phrase au micro
+                    🎤 Dicter au micro
+                  </button>
+                  <button type="button" id="hw-save-disk-btn" class="fun-btn fun-btn-yellow">
+                    💾 Sauvegarder sur le disque
                   </button>
                   <button type="button" id="hw-clear-btn" class="fun-btn fun-btn-gray">
                     🗑️ Effacer
@@ -218,6 +247,9 @@
                   ✨ Corriger mon Devoir !
                 </button>
               </div>
+
+              <!-- Disk Save Confirmation Banner -->
+              <div id="hw-disk-save-status" class="mt-3"></div>
             </div>
 
             <!-- AI Correction Result Container -->

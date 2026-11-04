@@ -481,6 +481,70 @@ def api_delete_homework():
     return jsonify({'homework_history': history, 'error': None})
 
 
+@app.route('/api/interactive_improve_homework', methods=['POST'])
+def api_interactive_improve_homework():
+    """
+    Interactively generate or improve the student's French homework based on English instructions of what to include.
+    """
+    class_id = (request.form.get('class_id') or 'class-11').strip()
+    custom_prompt = (request.form.get('custom_prompt') or '').strip()
+    current_french_text = (request.form.get('current_french_text') or '').strip()
+    english_instructions = (request.form.get('english_instructions') or '').strip()
+    history_raw = request.form.get('chat_history', '[]')
+    if not english_instructions:
+        return jsonify({'result': None, 'error': 'Type in English what you want to include or change in your homework!'}), 400
+    try:
+        chat_history = json.loads(history_raw) if history_raw else []
+    except Exception:
+        chat_history = []
+    try:
+        result = curriculum.interactive_improve_homework_from_english(
+            client=config.gemini.client,
+            class_id=class_id,
+            custom_prompt=custom_prompt,
+            current_french_text=current_french_text,
+            english_instructions=english_instructions,
+            chat_history=chat_history,
+        )
+        return jsonify({'result': result, 'error': None})
+    except Exception as e:
+        return jsonify({'result': None, 'error': utils.get_error_message_from_exception(e)}), 500
+
+
+@app.route('/api/save_homework_disk', methods=['POST'])
+def api_save_homework_disk():
+    """
+    Save the student's homework directly to disk (ltm/saved_homeworks/*.md and ltm/homework_submissions.json).
+    """
+    class_id = (request.form.get('class_id') or 'class-11').strip()
+    custom_prompt = (request.form.get('custom_prompt') or '').strip()
+    student_text = (request.form.get('student_text') or '').strip()
+    corrected_text = (request.form.get('corrected_text') or '').strip()
+    b1_upgraded_text = (request.form.get('b1_upgraded_text') or '').strip()
+    english_notes = (request.form.get('english_notes') or '').strip()
+    if not student_text and not corrected_text:
+        return jsonify({'error': 'Écris ou génère d\'abord ton devoir avant de le sauvegarder !'}), 400
+    try:
+        res = curriculum.save_homework_to_disk(
+            class_id=class_id,
+            custom_prompt=custom_prompt,
+            student_text=student_text,
+            corrected_text=corrected_text,
+            b1_upgraded_text=b1_upgraded_text,
+            english_notes=english_notes,
+        )
+        return jsonify({
+            'submission': res['submission'],
+            'homework_history': res['history'],
+            'file_path': res['file_path'],
+            'filename': res['filename'],
+            'file_content': res['file_content'],
+            'error': None,
+        })
+    except Exception as e:
+        return jsonify({'error': utils.get_error_message_from_exception(e)}), 500
+
+
 @app.route('/api/speak_french', methods=['POST'])
 def api_speak_french():
     """
