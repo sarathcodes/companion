@@ -1180,7 +1180,7 @@ function renderInteractiveCoauthorResult(res) {
   `);
 }
 
-function triggerHomeworkDiskSave() {
+function triggerHomeworkDiskSave(clickedBtn) {
   const classId = $("#homework-class-select").val() || "class-11";
   const customPrompt = ($("#homework-prompt-input").val() || "").trim();
   const studentText = ($("#homework-student-text").val() || "").trim();
@@ -1191,7 +1191,7 @@ function triggerHomeworkDiskSave() {
     return;
   }
 
-  const $btn = $("#hw-save-disk-btn");
+  const $btn = clickedBtn ? $(clickedBtn) : $("#hw-save-disk-btn");
   const orig = $btn.html();
   $btn.prop("disabled", true).html('<i class="fa-solid fa-spinner fa-spin me-1"></i> Sauvegarde...');
 
@@ -1203,11 +1203,14 @@ function triggerHomeworkDiskSave() {
     b1_upgraded_text: lastHomeworkB1Text,
     english_notes: englishNotes
   }, function (res) {
-    $btn.prop("disabled", false).html(orig);
     if (res.error) {
+      $btn.prop("disabled", false).html(orig);
       showNotification(res.error);
       return;
     }
+    $btn.prop("disabled", false).html("✅ Sauvegardé !");
+    setTimeout(() => $btn.html(orig), 2000);
+
     homeworkHistory = res.homework_history || homeworkHistory;
     renderHomeworkHistory();
 
@@ -1224,9 +1227,14 @@ function triggerHomeworkDiskSave() {
         </button>
       </div>
     `);
-  }).fail(function () {
+    const statusEl = document.getElementById("hw-disk-save-status");
+    if (statusEl) {
+      statusEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }).fail(function (xhr) {
     $btn.prop("disabled", false).html(orig);
-    showNotification("Erreur lors de la sauvegarde sur le disque.");
+    const err = (xhr.responseJSON && xhr.responseJSON.error) || "Erreur lors de la sauvegarde sur le disque.";
+    showNotification(err);
   });
 }
 
@@ -1945,7 +1953,7 @@ $(document).ready(function () {
 
   // Save homework to disk (both ltm/saved_homeworks/*.md and ltm/homework_submissions.json)
   $(document).on("click", "#hw-save-disk-btn, .save-corrected-disk-btn", function () {
-    triggerHomeworkDiskSave();
+    triggerHomeworkDiskSave(this);
   });
 
   // Download .md copy in browser
