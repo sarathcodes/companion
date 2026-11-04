@@ -1,23 +1,17 @@
-# Use Alpine Linux as base image
-FROM python:3.12-alpine
+FROM python:3.12-slim
 
-# Install required packages
-RUN apk update && \
-    apk add --no-cache \
-    ffmpeg \
-    git \
-    build-base 
-# Clone the companion repository
-RUN git clone https://github.com/shakedzy/companion.git /app
+# Install ffmpeg for audio conversion
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ffmpeg && \
+    rm -rf /var/lib/apt/lists/*
 
-# Set the working directory
 WORKDIR /app
 
-RUN python -m venv venv \
-    && source venv/bin/activate \
-    && pip install --no-cache-dir -r requirements.txt
+COPY requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-EXPOSE 5000
+COPY . /app
 
-# Define command to run your application
-CMD ["venv/bin/python", "companion.py"]
+EXPOSE 5001
+
+CMD ["python", "companion.py", "--port", "5001"]

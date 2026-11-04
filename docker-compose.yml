@@ -1,11 +1,14 @@
-version: '3.8'
-
 services:
-  app:
+  companion:
     build:
       context: .
       dockerfile: Dockerfile
+    container_name: french-companion
+    restart: unless-stopped
     ports:
-      - "5000:5000"
+      - "5001:5001"
     environment:
-      - OPENAI_API_KEY=your_openai_api_key_here
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    volumes:
+      - ./ltm:/app/ltm
+      - ./config.yml:/app/config.yml
