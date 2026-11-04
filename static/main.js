@@ -179,15 +179,19 @@ function renderQuestHeroBanner() {
         <p class="mb-2 opacity-90">
           Complète les 17 missions en parlant au micro. Obtiens au moins <strong>8/10</strong> au Défi du Boss pour gagner tes étoiles ⭐ !
         </p>
-        <div class="bg-white bg-opacity-25 rounded-pill p-1 mb-2" style="max-width: 480px;">
-          <div class="bg-warning rounded-pill text-dark fw-bold small px-3 py-1" style="width: ${Math.max(pct, 12)}%;">
-            ${totalMastered}/${totalMods} Missions (${pct}%)
+        <div class="mb-3" style="max-width: 520px;">
+          <div class="d-flex justify-content-between align-items-center small fw-bold mb-1">
+            <span>🎯 Progression : ${totalMastered} / ${totalMods} Missions réussies</span>
+            <span class="badge bg-warning text-dark rounded-pill px-2 py-1">${pct}%</span>
+          </div>
+          <div style="height: 16px; background: rgba(0, 0, 0, 0.22); border-radius: 999px; overflow: hidden; padding: 2px;">
+            <div style="width: ${Math.max(pct, 4)}%; height: 100%; background: linear-gradient(90deg, #fde047, #f59e0b); border-radius: 999px; transition: width 0.35s ease;"></div>
           </div>
         </div>
-        <div class="d-flex flex-wrap gap-3 small fw-bold">
-          <span>🌱 Niveau A1 : ${countByLevel("A1")}</span>
-          <span>🚀 Niveau A2 : ${countByLevel("A2")}</span>
-          <span>👑 Niveau B1 : ${countByLevel("B1")}</span>
+        <div class="d-flex flex-wrap gap-2 small fw-bold">
+          <span class="px-3 py-1 rounded-pill" style="background: rgba(0,0,0,0.18);">🌱 Niveau A1 : ${countByLevel("A1")}</span>
+          <span class="px-3 py-1 rounded-pill" style="background: rgba(0,0,0,0.18);">🚀 Niveau A2 : ${countByLevel("A2")}</span>
+          <span class="px-3 py-1 rounded-pill" style="background: rgba(0,0,0,0.18);">👑 Niveau B1 : ${countByLevel("B1")}</span>
         </div>
       </div>
       <div class="col-md-4 text-md-end">
