@@ -30,10 +30,24 @@
 
 html, body {
   min-height: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
   background-color: var(--bg-page);
   color: var(--text-main);
   font-family: 'Nunito', -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 16px;
+}
+
+.row > * {
+  min-width: 0;
+}
+
+.badge {
+  white-space: normal !important;
+  text-align: left;
+  line-height: 1.35;
+  max-width: 100%;
+  overflow-wrap: break-word;
 }
 
 h1, h2, h3, h4, .fun-tab-btn, .fun-btn, .xp-pill {
@@ -41,7 +55,7 @@ h1, h2, h3, h4, .fun-tab-btn, .fun-btn, .xp-pill {
 }
 
 /* ========================================================= */
-/* HEADER & 3 BIG NAVIGATION PILLS                           */
+/* HEADER & NAVIGATION PILLS                                 */
 /* ========================================================= */
 .fun-header {
   background: var(--surface);
@@ -52,24 +66,24 @@ h1, h2, h3, h4, .fun-tab-btn, .fun-btn, .xp-pill {
 }
 
 .fun-header-inner {
-  max-width: 1180px;
+  max-width: 1380px;
   margin: 0 auto;
-  padding: 0.7rem 1.2rem;
+  padding: 0.55rem 1rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 0.8rem;
+  gap: 0.5rem;
 }
 
 .fun-logo {
-  height: 42px;
+  height: 38px;
   width: auto;
 }
 
 .fun-nav {
   display: flex;
-  gap: 0.6rem;
+  gap: 0.45rem;
   flex-wrap: wrap;
 }
 
@@ -78,13 +92,14 @@ h1, h2, h3, h4, .fun-tab-btn, .fun-btn, .xp-pill {
   border: 2px solid var(--border-col);
   border-bottom-width: 4px;
   color: var(--text-main);
-  padding: 0.55rem 1.15rem;
-  border-radius: 16px;
-  font-size: 1rem;
+  padding: 0.42rem 0.85rem;
+  border-radius: 14px;
+  font-size: 0.92rem;
   font-weight: 600;
+  white-space: nowrap;
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.35rem;
   transition: transform 0.1s ease, background 0.15s ease;
 }
 
@@ -102,7 +117,8 @@ h1, h2, h3, h4, .fun-tab-btn, .fun-btn, .xp-pill {
 .fun-stats {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  flex-wrap: wrap;
+  gap: 0.4rem;
 }
 
 .xp-pill {
@@ -110,10 +126,11 @@ h1, h2, h3, h4, .fun-tab-btn, .fun-btn, .xp-pill {
   border: 2px solid var(--duo-yellow);
   border-bottom-width: 4px;
   color: #b45309;
-  padding: 0.38rem 0.9rem;
+  padding: 0.32rem 0.75rem;
   border-radius: 999px;
   font-weight: 700;
-  font-size: 0.95rem;
+  font-size: 0.88rem;
+  white-space: nowrap;
 }
 
 .fun-icon-btn {
@@ -121,13 +138,14 @@ h1, h2, h3, h4, .fun-tab-btn, .fun-btn, .xp-pill {
   border: 2px solid var(--border-col);
   border-bottom-width: 4px;
   color: var(--text-main);
-  padding: 0.4rem 0.8rem;
-  border-radius: 14px;
+  padding: 0.35rem 0.7rem;
+  border-radius: 12px;
+  font-size: 0.88rem;
   font-weight: 700;
   text-decoration: none;
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.3rem;
 }
 
 .fun-icon-btn:hover {
@@ -150,6 +168,41 @@ h1, h2, h3, h4, .fun-tab-btn, .fun-btn, .xp-pill {
   border-bottom-width: 5px;
   border-radius: 22px;
   padding: 1.4rem;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+
+.quest-card,
+.word-flashcard,
+.magic-rule-box,
+.boss-arena,
+.tense-box {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+
+select.form-select,
+.fun-select {
+  max-width: 100%;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.font-monospace {
+  word-break: break-all;
+  overflow-wrap: anywhere;
+}
+
+.hw-en-idea-chip,
+.hw-starter-chip,
+.word-badge-chip {
+  white-space: normal !important;
+  text-align: left;
+  max-width: 100%;
 }
 
 .hero-banner {
@@ -176,6 +229,9 @@ h1, h2, h3, h4, .fun-tab-btn, .fun-btn, .xp-pill {
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
+  max-width: 100%;
+  white-space: normal;
+  text-align: center;
   transition: transform 0.08s ease;
 }
 
@@ -426,6 +482,15 @@ h1, h2, h3, h4, .fun-tab-btn, .fun-btn, .xp-pill {
   align-items: center;
   justify-content: space-between;
   gap: 0.8rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.example-bubble > div:first-child {
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
 }
 
 .sound-circle-btn {
